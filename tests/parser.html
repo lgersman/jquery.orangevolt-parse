@@ -1,0 +1,517 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>query.orangevolt.parse - parser testcase</title>
+
+<link type="text/css" rel="stylesheet" media="screen" href="testsuite.css"/>
+
+<script language="javascript" src="../lib/jquery-1.3.2.js"></script>
+<script language="javascript" src="lib/jqUnit.js"></script>
+<script language="javascript" src="../jquery.orangevolt-parse.js"></script>
+
+<script type="text/javascript">
+
+/*
+ * n is a helper class to construct a tree with children and siblings
+ *
+ * its used to construct the expect data
+ */ 
+function n() {
+	if( this instanceof n) {
+		$.extend( this, $.orangevolt.parse.Node); 
+		this.children = $.makeArray( arguments);
+		for( var i=0; i<this.children.length; i++) {
+			this.children[i] = this.children[i].getFirstSibling ? this.children[i].getFirstSibling() : this.children[i]; 
+		}
+		this.n = function( n) {
+			this.nextSibling = n;
+			(typeof n == 'string') || (n.prevSibling=this);
+			return n;
+		}
+		this.s = function( text) {
+			return this.n( s( text || ''));
+		} 
+		return this;
+	} else {
+		return n.apply( new n(), arguments);
+	}
+}
+
+function s( text) {
+	if( this instanceof n) {
+		this.text = text || '';
+	} else {
+		return n.apply( new n(), arguments);
+	}
+}
+/* -- */
+
+/*
+ *  walks down the ast and compares the ast values with the expected data  
+ */
+jqUnit.assertAST = function( expected, ast) {
+	if( !ast.children.length && (expected.text || (typeof expected == 'string'))) {
+		jqUnit.equals( expected.text || expected, ast.match.toString());
+	}
+
+	do {
+		for( var i=0; i<ast.children.length; i++) {
+			arguments.callee( expected.children[i], ast.children[ i]);
+		}				
+		expected = expected.nextSibling;	
+	} while( ast=ast.nextSibling);
+};		
+/* -- */
+
+with( jqUnit) {
+	module( 'jquery.orangevolt.parse.Parser');
+
+	test( 'tokenize', function() {
+		var grammar = $.orangevolt.parse.Grammar({
+			lexer : {
+				skip   : /\s*/m,
+				tokens : {
+					age_is : /age +(is|was)/,
+					age    : /\d{1,2}/,
+					dot    : /\./,
+					name   : /\w+/ 	
+				}
+			}, 
+			rules : $.orangevolt.parse.Rule.Token( 'name','age_is','age','dot')//.Token( 'age_is').Token( 'age').Token( 'dot')
+		});
+		
+		var ast = grammar.parse( 'lars age is 36.');
+		equals( 'lars', ast.match.toString());
+
+		ast = ast.nextSibling;
+		equals( 'age is', ast.match.toString());
+
+		ast = ast.nextSibling;
+		equals( '36', ast.match.toString());
+
+		ast = ast.nextSibling;
+		equals( '.', ast.match.toString());
+	});
+
+	test( 'tokenize 2', function() {
+		var grammar = $.orangevolt.parse.Grammar({
+			lexer : {
+				skip   : /\s*/m,
+				tokens : {
+					age_is : /age +(is|was)/,
+					age    : /\d{1,2}/,
+					dot    : /\./,
+					name   : /\w+/ 	
+				}
+			}, 
+			rules : $.orangevolt.parse.Rule.Token( 'name').Token( 'age_is').Token( 'age').Token( 'dot')
+		});
+		
+		var ast = grammar.parse( 'lars age is 36.');
+		equals( 'lars', ast.match.toString());
+
+		ast = ast.nextSibling;
+		equals( 'age is', ast.match.toString());
+
+		ast = ast.nextSibling;
+		equals( '36', ast.match.toString());
+
+		ast = ast.nextSibling;
+		equals( '.', ast.match.toString());
+	});
+
+	test( 'rule OneOf', function() {
+		with( $.orangevolt.parse) {
+			var g = Grammar({
+				lexer : {
+					skip   : /\s*/m,
+					tokens : {
+						euro   : /€/,
+						dollar : /\$/,
+						number : /\d+((\.|,)\d{1,2})?/	
+					}
+				}, 
+				rules : Rule.OneOf( 'currency', 
+					Rule.Token( 'dollar').Token( 'number'),
+					Rule.Token( 'number').Token( 'euro')
+				)
+			});
+		
+			var p = Parser( { grammar : g, reader : Reader( '24 € sind im Pott.')});
+			var ast = p.parse();
+			var expected = ['24', '€'];
+			for( var i=0; i<ast.children.length; i++) {
+				equals( expected[i], ast.children[i].match.toString());
+			}
+			equals( ' sind im Pott.', p.reader.charsLeft);
+		
+			var data = [
+				{ text : '  2,67 €', expected : [ '2,67', '€'], charsLeft : ''},
+				{ text : ' $16 ', 	 expected : [ '$', '16'], charsLeft : ' '},
+				{ text : ' $16.45 are in the jackpot', expected : [ '$', '16.45'], charsLeft : ' are in the jackpot'},
+				{ text : ' \r $\n16.45 are in the jackpot', expected : [ '$', '16.45'], charsLeft : ' are in the jackpot'},
+				{ text : '\r\n \r $\n16.45 are in the jackpot', expected : [ '$', '16.45'], charsLeft : ' are in the jackpot'},
+			];
+		
+			for( var i=0; i<data.length; i++) {
+				var p = Parser({ grammar : g, reader : Reader( data[i].text)});
+				var ast = p.parse();
+				
+				var expected = data[i].expected;
+				for( var r=0; r<ast.children.length; r++) {
+					equals( expected[r], ast.children[r].match.toString());
+				}
+				equals( data[i].charsLeft, p.reader.charsLeft);
+			}
+		}
+	});
+
+	test('rule OneOrMore', function() {
+		with( $.orangevolt.parse) {
+			var g = Grammar({
+				lexer : {
+					skip   : /\s*/,
+					tokens : {
+						word     : /[a-z]+/,
+						number   : /\d/,
+						line_sep : /;/,
+						eof		 : /$/
+					}
+				}, 
+				rules : Rule.OneOrMore( 'lines',
+					Rule.OneOrMore( 'words', Rule.Token( 'word'))
+					.OneOrMore( 'numbers', Rule.Token( 'number'))
+					.Token( 'line_sep') 
+				).Token( 'eof')
+			});
+
+			var expected = n(
+				n( 'alpha', 'beta', 'gamma', 'vier').n( n( '1', '2', '3')).s( ';'),
+				n( 'delta').n( n( '4', '4')).s( ';')
+			).s( 'eof').getFirstSibling();
+
+			var p = Parser( { grammar : g, reader : Reader( 'alpha beta gamma vier 1 2 3 ; delta 4 4 ; ')});
+			var ast = p.parse();
+
+			assertAST( expected, ast);		
+		}
+	});
+
+	test('rule ZeroOrMore', function() {
+		with( $.orangevolt.parse) {
+			var g = Grammar({
+				lexer : {
+					skip   : /\s*/,
+					tokens : {
+						word     : /[a-z]+/,
+						number   : /\d/,
+						line_sep : /;/,
+						eof		 : /$/
+					}
+				}, 
+				rules : Rule.ZeroOrMore( 'lines',
+					Rule.ZeroOrMore( 'words', Rule.Token( 'word'))
+					.ZeroOrMore( 'numbers', Rule.Token( 'number'))
+					.Token( 'line_sep') 
+				)
+			});
+
+			var expected = n(
+				n( 'alpha', 'beta', 'gamma', 'vier').n( n( '1', '2', '3')).s( ';'),
+				n( 'delta').n( n( '4', '4')).s( ';')
+			).getFirstSibling();
+			var reader;
+			var p = Parser( { grammar : g, reader : reader=Reader( 'alpha beta gamma vier 1 2 3 ; delta 4 4 ; <probates mittel>')});
+			var ast = p.parse();
+			assertAST( expected, ast);
+			equals( ' <probates mittel>', reader.charsLeft);
+
+			var expected = n(
+				n( ).n( n( )).s( ';'),
+				n( 'alpha', 'beta', 'gamma', 'vier').n( n( '1', '2', '3')).s( ';'),
+				n( 'delta').n( n( '4', '4')).s( ';')
+			).getFirstSibling();
+			var reader;
+			var p = Parser( { grammar : g, reader : reader=Reader( '      ;alpha \r\nbeta gamma\r vier 1\n\n 2 3 ; delta 4 4 ; <probates mittel>')});
+			var ast = p.parse();
+			assertAST( expected, ast);
+			equals( ' <probates mittel>', reader.charsLeft);
+
+				// test zero tokens read 
+			var expected = n().getFirstSibling();	// expected = empty root node
+			var p = Parser( { grammar : g, reader : reader=Reader( '$$nothing_parsable$$')});
+			var ast = p.parse();
+			assertAST( expected, ast);		
+			equals( '$$nothing_parsable$$', reader.charsLeft);
+		}
+	});
+
+	test('rule Optional/Loop', function() {
+		with( $.orangevolt.parse) {
+			var g = Grammar({
+				lexer : {
+					skip   : /,/,
+					tokens : {
+						fruit  : /(him|brom)beer/,
+						word   : /\w/,
+						assign : /=/,
+						eof		 : Lexer.EOF
+					}
+				}, 
+				rules : Rule.Loop( '3times', 3,
+					Rule.Token( 'word','assign','word')
+				).Optional( 'afruit', Rule.Token( 'fruit')).Token('eof')
+			});
+
+			var expected = n(
+				s('a').s('=').s('A'),
+				s('b').s('=').s('B'),
+				s('c').s('=').s('C')
+			).n( s('himbeer')).s().getFirstSibling();
+			
+			var ast = g.parse( 'a=A,b=B,c=Chimbeer');
+			assertAST( expected, ast);
+
+			g = Grammar({
+				lexer : {
+					skip   : /,/,
+					tokens : {
+						fruit  : /(him|brom)beer/,
+						word   : /\w/,
+						assign : /=/,
+						eof	   : Lexer.EOF
+					}
+				}, 
+				rules : [
+					Rule.Loop( '3times', 3,
+						Rule.Term('word')
+					).Optional( 'afruit', Rule.Token( 'fruit')).Token('eof'),
+					
+					Rule.Token( 'word','assign','word')
+				]
+			});		
+		}
+	});	
+
+	test( 'rule OneOf 2', function() {
+		with( $.orangevolt.parse) {
+			var g = Grammar({
+				lexer : {
+					skip   : /\s*/,
+					tokens : {
+						comment  : /#[^\r\n]*/,					
+						word     : /\w+/,   		
+						assign   : /=/
+					}
+				}, 
+				rules : [
+					Rule.ZeroOrMore( 'lines',
+						Rule.Term( 'line')
+					),
+					Rule.OneOf( 'line',
+						Rule.Token( 'comment'),
+						Rule.Token( 'word','assign','word')
+					)
+				]
+			});
+
+			var expected = n(
+				n( s('alpha').s('=').s( 'eins')),	
+				n( s('beta').s('=').s( 'zwei')),
+				n( s('# a simple comment')),
+				n( s('gamma').s('=').s( 'drei'))
+			).getFirstSibling();
+
+			var reader = Reader( 'alpha=eins\nbeta=zwei\r\n# a simple comment\ngamma=drei\ningeborg abfahrt');
+			var p = Parser( { grammar : g, reader : reader});
+			var ast = p.parse();
+			assertAST( expected, ast);
+			equals( '\ningeborg abfahrt', reader.charsLeft);
+		}
+	});
+
+	test( 'calculator', function() {
+		/*
+		expr( 
+			mexpr
+			(("+"|"-") mexpr)*		 		
+		)
+		mexpr(
+			atom
+			(("*"|"/") atom)*
+		)
+		atom(
+			int /\d+/ | "(" expr ")"		 		
+		)
+		*/
+		with( $.orangevolt.parse) {
+			var g = Grammar({
+				lexer : {
+					skip   : /\s*/,
+					tokens : {
+						plus        : /[+]/,
+						minus 	    : /[-]/,
+						mult	    : /[*]/,
+						div     	: /[/]/,
+						open_brace  : /[(]/,
+						close_brace : /[)]/,
+						number      : /\d+(\.\d+)?/
+					}
+				}, 
+				rules : [
+					Rule.Once( 'expr',
+						Rule.Term( 'mexpr').ZeroOrMore( 'r_expr',
+							Rule.OneOf( 'plus_minus',
+								Rule.Token( 'plus'),
+								Rule.Token( 'minus')	
+							).Term( 'mexpr')	
+						)	
+					),
+					Rule.OneOf( 'mexpr',
+						Rule.Term( 'atom').ZeroOrMore( 'r_expr',
+							Rule.OneOf( 'mult_div',
+								Rule.Token( 'mult'),
+								Rule.Token( 'div')	
+							).Term( 'atom')	
+						)
+					),
+					Rule.OneOf( 'atom',
+						Rule.Token( 'number'),
+						Rule.Token( 'open_brace').Term( 'expr').Token( 'close_brace')	
+					)	
+				]
+			});
+
+			var reader = Reader( '23 * (14 + 4 + 2 + 5) + tetraeder');
+			var p = Parser( { grammar : g, reader : reader});
+			var ast = p.parse();
+			console.dir( ast);
+			
+			equals( ' + tetraeder', reader.charsLeft);
+
+			var output = $('<div>'); 
+			output.append( $('<p style="width:2000px">').append( ast.html()));
+
+			var optimizer = function() {
+					switch( this.rule.token) {
+						// throw away '(' and ')' asts
+					case 'open_brace'		:
+					case 'close_brace'  	: return undefined;
+						// throw away empty r_expr asts
+					case 'r_expr' 			: return this.children.length ? this : undefined;
+						// replace mult_div and plus_minus by their first child (the operation token ast)  
+					case 'plus_minus'		: 
+					case 'mult_div' 		: 
+						// replace expr by its child 
+					case 'expr'				: return this.children[0];
+
+					case 'atom'				: 
+					case 'mexpr'			: return this.children[0];
+					
+					default 				: return this;
+				}
+			};
+			
+				// remodel ast
+			ast = ast.purge( optimizer);
+
+			output.append( $('<p style="width:2000px">').append( ast.html()));
+
+			var calculatorVisitor = function( ast, context) {
+				switch( ast.rule.token) {
+					case 'open_brace' 	: return arguments.callee( ast.nextSibling, context);
+					case 'close_brace' 	: return context;
+					case 'number' 		: return parseFloat( ast.match);
+					case 'expr'   		:
+					case 'mexpr'  		:				
+					case 'atom'   		: {
+						var val = arguments.callee( ast.children[0]);
+							// execute r_expr right of us if any
+						return ast.nextSibling ? arguments.callee( ast.nextSibling, val) : val; 
+					}
+					case 'r_expr' 		: {
+						for( var i=0; i<ast.children.length;i++) {
+							var rval =  arguments.callee( ast.children[i].nextSibling); 
+							switch( ast.children[i].children[0].match.toString()) {
+								case '*' : context *= rval; break;
+								case '/' : context /= rval; break;
+								case '+' : context += rval; break;
+								case '-' : context -= rval; break;  
+							}
+						}
+						return context;
+					}
+				}
+			};
+
+			var optimizedCalculatorVisitor = function( ast, context) {
+				switch( ast.rule.token) {
+					case 'number' : {
+						var val = parseFloat( ast.match);	
+						// execute r_expr right of us if any
+						return ast.nextSibling ? arguments.callee( ast.nextSibling, val) : val; 
+					}
+					case 'r_expr' : {
+						for( var i=0; i<ast.children.length;i++) {
+							var rval =  arguments.callee( ast.children[i].nextSibling); 
+							switch( ast.children[i].match.toString()) {
+								case '*' : context *= rval; break;
+								case '/' : context /= rval; break;
+								case '+' : context += rval; break;
+								case '-' : context -= rval; break;  
+							}
+						}
+						return context;
+					}
+				}
+			};
+
+			equals( 575, optimizedCalculatorVisitor( ast));
+			
+			var ast = g.parse( '23*(14+4*(8+1))/4');
+			output.append( $('<p style="width:2000px">').append( ast.html()));
+			equals( 287.5, calculatorVisitor( ast));
+			
+			ast = ast.purge( optimizer);
+			output.append( $('<p style="width:2000px">').append( ast.html()));
+			equals( 287.5, optimizedCalculatorVisitor( ast));
+
+			ast = g.parse( '  34.5 + 6 / 3.002');
+			ast = ast.purge( optimizer);
+			output.append( $('<p style="width:2000px">').append( ast.html()));
+			
+			var value = optimizedCalculatorVisitor( ast);
+			equals( 36.498667554963355, value);
+
+			setTimeout( function() {
+				$( '<p id="dump" style="font-family: monospace"><h3>output</h3></p>')
+				.append( output).appendTo( 'body');
+			}, 10);
+			
+		 }
+	});
+}
+</script>
+
+</head>
+<body>
+	<pre>
+/* 
+ * Copyright (c) 2009 Lars Gersmann (lars.gersmann@gmail.com, http://orangevolt.blogspot.com)
+ * Dual licensed under the MIT (http://www.opensource.org/licenses/mit-license.php)
+ * and GPL (http://www.opensource.org/licenses/gpl-license.php) licenses.
+ */	
+	</pre>
+
+	<h3>test results</h3>
+
+	 <!-- Test HTML -->
+    <div id="main" style="display: none;">
+      <form id="test-form">
+        <input/>
+      </form>
+    </div>
+    <ol id="tests"></ol>
+</body>
+</html>

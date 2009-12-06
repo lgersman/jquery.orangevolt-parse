@@ -1,0 +1,156 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>query.orangevolt.parse - lexer testcase</title>
+
+<link type="text/css" rel="stylesheet" media="screen" href="testsuite.css"/>
+
+<script language="javascript" src="../lib/jquery-1.3.2.js"></script>
+<script language="javascript" src="lib/jqUnit.js"></script>
+<script language="javascript" src="../jquery.orangevolt-parse.js"></script>
+
+<script type="text/javascript">
+with( jqUnit) {
+	module( 'jquery.orangevolt.parse.Lexer');
+
+	var lexer = $.orangevolt.parse.Lexer({
+		skip   : /\s*/m,
+		tokens : {
+			number : /\d+/,
+			word   : /\w+/,
+			eof	   : $.orangevolt.parse.Lexer.EOF 	
+		}
+	});
+
+	test( 'simple', function() {
+		var reader = $.orangevolt.parse.Reader( 'lars is 36 years old');
+
+		equals( 'lars',lexer.next( reader, 'word').toString());
+		equals( 'is',lexer.next( reader, lexer.tokens.word).toString());
+		equals( '36',lexer.next( reader, 'number').toString());
+		equals( 'years',lexer.next( reader, 'word').toString());
+		equals( 'old',lexer.next( reader, 'word').toString());
+		equals( '',lexer.next( reader, lexer.tokens.eof).toString());
+	});
+	
+	test( 'unread', function() {
+		var reader = $.orangevolt.parse.Reader( 'lars is 36 years old');
+		equals( 'lars',lexer.next( reader, 'word').toString());
+
+		var match = lexer.next( reader, lexer.tokens.word);
+		equals( 'is', match.toString());
+
+		lexer.unread( reader, match);
+		equals( 'is',lexer.next( reader, lexer.tokens.word).toString());
+		
+		equals( '36',lexer.next( reader, 'number').toString());
+		equals( 'years',lexer.next( reader, 'word').toString());
+		equals( 'old',lexer.next( reader, 'word').toString());
+		equals( '',lexer.next( reader, lexer.tokens.eof).toString());
+	});	
+
+	test( 'match failed unread', function() {
+		var reader = $.orangevolt.parse.Reader( 'lars is 36 years old');
+
+		equals( 'lars',lexer.next( reader, 'word').toString());
+
+		var match = lexer.next( reader, lexer.tokens.word);
+		equals( 'is', match.toString());
+		
+		equals( '36',lexer.next( reader, 'number').toString());
+		equals( 'years',lexer.next( reader, 'word').toString());
+		equals( 'old',lexer.next( reader, 'word').toString());
+		equals( '',lexer.next( reader, lexer.tokens.eof).toString());
+	});
+
+	test( 'line/column', function() {
+		var reader = $.orangevolt.parse.Reader( 'hello\r\n i am\r  lars\ngreetings   ');
+
+		var hello = lexer.next( reader, lexer.tokens.word);
+		equals( 1, hello.position.line);
+		equals( 1, hello.position.column);
+		
+		var i = lexer.next( reader, lexer.tokens.word);
+		equals( 2, i.position.line);
+		equals( 2, i.position.column);
+		
+		var am = lexer.next( reader, lexer.tokens.word);
+		equals( 2, am.position.line);
+		equals( 4, am.position.column);
+		
+		var lars = lexer.next( reader, lexer.tokens.word);
+		equals( 3, lars.position.line);
+		equals( 3, lars.position.column);
+		
+		var greetings = lexer.next( reader, lexer.tokens.word);
+		equals( 4, greetings.position.line);
+		equals( 1, greetings.position.column);
+
+		var eof = lexer.next( reader, lexer.tokens.eof);
+		equals( 4, eof.position.line);
+		equals( 13, eof.position.column);
+
+		equals( 4, reader.line);
+		equals( 13, reader.column);
+		lexer.unread( reader, eof);
+		equals( 4, reader.line);
+		equals( 10, reader.column);
+		
+		lexer.unread( reader, greetings);
+		equals( 3, reader.line);
+		equals( 7, reader.column);
+
+		lexer.unread( reader, lars);
+		equals( 2, reader.line);
+		equals( 6, reader.column);
+
+		lexer.unread( reader, am);
+		equals( 2, reader.line);
+		equals( 3, reader.column);
+
+		lexer.unread( reader, i);
+		equals( 1, reader.line);
+		equals( 6, reader.column);
+
+		lexer.unread( reader, hello);
+		equals( 1, reader.line);
+		equals( 1, reader.column);		
+	});
+
+	test( 'token regexp', function() {
+		var reader = $.orangevolt.parse.Reader( 'lars is 36 years old');
+
+		equals( lexer.tokens.word, lexer.next( reader).regexp);
+		equals( lexer.tokens.word, lexer.next( reader).regexp);
+		equals( lexer.tokens.number, lexer.next( reader).regexp);
+		equals( lexer.tokens.word, lexer.next( reader).regexp);
+		equals( lexer.tokens.word, lexer.next( reader).regexp);
+	});
+}
+</script>
+
+</head>
+<body>
+	<pre>
+/* 
+ * Copyright (c) 2009 Lars Gersmann (lars.gersmann@gmail.com, http://orangevolt.blogspot.com)
+ * Dual licensed under the MIT (http://www.opensource.org/licenses/mit-license.php)
+ * and GPL (http://www.opensource.org/licenses/gpl-license.php) licenses.
+ */	
+	</pre>
+
+	<h3>test results</h3>
+
+	 <!-- Test HTML -->
+    <div id="main" style="display: none;">
+      <form id="test-form">
+        <input/>
+      </form>
+      <div id="ajax">
+        
+      </div>
+    </div>
+    <ol id="tests"></ol>
+</body>
+</html>

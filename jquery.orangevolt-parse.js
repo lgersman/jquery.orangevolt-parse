@@ -69,9 +69,9 @@
 			
 			return this;
 		} else {
-			return new $.orangevolt.parse.Reader( input)
+			return new $.orangevolt.parse.Reader( input);
 		}
-	}
+	};
 
 	$.orangevolt.parse.Match = function( skipped, match, regexp, token, position) {
 		if( this instanceof $.orangevolt.parse.Match) {
@@ -95,11 +95,11 @@
 		if( this instanceof $.orangevolt.parse.LexerException) {
 			this.toString = function() {
 				return msg;
-			}
+			};
 		} else {
 			return new $.orangevolt.parse.LexerException( msg);
 		}
-	}
+	};
 	
 	$.orangevolt.parse.Lexer = function( options) {
 		if( this instanceof $.orangevolt.parse.Lexer) {
@@ -113,7 +113,9 @@
 				if( tokens.hasOwnProperty( token)) {
 					tokenNames.push( token);
 					var regexp = tokens[ token].source;
-					tokenRegexp = tokenRegexp + '|(' + regexp.replace( /(?=[^\\])?\((?!\?)/g, '(?:') + ')';
+					tokenRegexp = tokenRegexp + '|(' + regexp.replace(
+							/\\?\(/g,function( txt) { return txt.charAt(0)=='\\' ? txt : txt + '?:';}
+						) + ')';
 				}
 			}
 			tokenRegexp = new RegExp( tokenRegexp.substring( 1), 'm');
@@ -168,7 +170,7 @@
 			return this;
 		}
 		else return new $.orangevolt.parse.Lexer( options);
-	}
+	};
 	
 	$.extend( $.orangevolt.parse.Lexer, {
 		EOF  : /$/
@@ -196,7 +198,31 @@
 			return this;
 		}
 		else return new $.orangevolt.parse.Grammar( options);
-	}
+	};
+
+	$.orangevolt.parse.Error = function( options) {
+		if( this instanceof $.orangevolt.parse.Error) {
+			return $.extend( this, options, {
+				toString : function() {
+					if( this.child) {
+						return this.child.toString(); 
+					} else {
+						return (this.position ? this.position.line + ',' + this.position.column + ' : ' : '') + this.msg;
+					}
+				},
+				getStackTrace : function() {
+					if( this.child) {
+						var stackTrace = this.child.getStackTrace();
+						stackTrace.push( this);
+						return stackTrace; 
+					} else {
+						return [ this];
+					}
+				} 
+			});
+		}
+		else return new $.orangevolt.parse.Error( options);
+	};
 	
 	$.orangevolt.parse.Parser = function( options) {
 		if( this instanceof $.orangevolt.parse.Parser) {
@@ -205,21 +231,26 @@
 			$.extend( this, $.orangevolt.parse.Parser, options, {
 				next 		: function() {
 					if( !next) {
+							// update position
+						this.position = { line : this.reader.line, column : this.reader.column };
+						
 						next = this.grammar.lexer.next( this.reader);
 					}
 					
 					return next;
 				},
 				consume		: function() {
-					next = undefined;	
+					next = undefined;
+						// update position
+					this.position.line = { line : this.reader.line, column : this.reader.column};
 				},
 				parse 		: function() {
 					var rule=this.grammar.rules[0], ast;
 					
 					do {
 						ast = rule.adapt( this, ast);
-						if( !ast) {
-							throw 'parser : Rule "' + rule.token + '" could not be applied.';
+						if( ast instanceof $.orangevolt.parse.Error) {
+							throw ast;
 						}
 					}
 					while( rule=rule.nextSibling);
@@ -242,7 +273,7 @@
 							}
 						}	
 						
-						if( ast.rule.type=='term') {
+						if( ast.rule.type=='Term') {
 							var child = ast.children[0];
 							if( ast.prevSibling) {
 								child.prevSibling = ast.prevSibling;
@@ -257,7 +288,6 @@
 							
 							ast = child;
 						}
-						
 						return ast;
 					})(ast);
 				},
@@ -278,15 +308,27 @@
 							
 							this.grammar.lexer.unread( this.reader, ast.match);
 						}
-						while( ast=ast.previousSibling);
+						while( ast=ast.prevSibling);
 					}
+					
+						// update position 
+					this.position = { line : this.reader.line, column : this.reader.column};
+				},
+				error : function( options) {
+					return $.orangevolt.parse.Error( $.extend( options, { 
+						position : this.position 
+					}));
+				},
+				position : { 
+					line : 1,
+					column : 1
 				}
 			});
 			
 			return this;
 		}
 		else return new $.orangevolt.parse.Parser( options);
-	}	
+	};	
 	
 		// Node is a mixin ! 
 	$.orangevolt.parse.Node = {
@@ -317,7 +359,7 @@
 			}
 			return node;
 		}
-	}
+	};
 	
 	$.orangevolt.parse.AST = function( rule, match, /**AST*/prevSibling, /**array<AST>*/children) {
 		if( this instanceof $.orangevolt.parse.AST) {
@@ -402,7 +444,7 @@
 			return this;
 		}
 		else return new $.orangevolt.parse.AST( rule, match, /**AST*/prevSibling, /**array<AST>*/children);
-	}	
+	};
 	
 	$.orangevolt.parse.Rule = function( /**Rule*/prevSibling, /*Token*/token /**, children<Rule>*/) {
 		var children = arguments.length>2 ? arguments[ 2] : [];
@@ -423,14 +465,14 @@
 				},
 				parse			: function( parser) {
 					var rule = this;
-					var result, ast;
+					var result = undefined, ast;
 					
 					try {
 						do {
 							ast = rule.adapt( parser, ast);
 							
-							if( !ast) {
-								return result;
+							if( ast instanceof $.orangevolt.parse.Error) {
+								return ast;
 							}
 							
 							if( !result) {
@@ -438,16 +480,25 @@
 							}
 						}
 						while( rule=rule.nextSibling);
+						
+						return result;
 					} catch( ex) {
-						// catch lexer exceptions
-						if( ex instanceof $.orangevolt.parse.LexerException) {
-							
-						} else {
-							throw ex;
-						}
+						return parser.error({
+							msg   : rule.type + '<' + rule.token + '> : ' + ex.toString(),
+							rule  : this, 
+							match : undefined
+						});	
+					} finally {
+						(ast instanceof $.orangevolt.parse.Error) && result && parser.rollback( result);
+					} 
+				},
+				_childRuleNames : function() {
+					var ruleNames = [];
+					for( var i=0; i<this.children.length; i++) {
+						ruleNames.push( this.children[i].type + '<' + this.children[i].token + '>');
 					}
 					
-					return result;
+					return ruleNames.join( ', ');
 				}
 			});
 			
@@ -457,15 +508,15 @@
 			return this;
 		}
 		else return new $.orangevolt.parse.Rule( /**Rule*/prevSibling, /*Token*/token, /**, children<Rule>*/children);
-	}
+	};
 	
 		// adapt factory methods to $.orangevolt.parse.Rule 
 	$( ['Token', 'OneOf', 'OneOrMore', 'ZeroOrMore', 'Once', 'Optional', 'Loop', 'Repeat', 'Term']).each( function() {
 		var type = this;
-		$.orangevolt.parse.Rule[ type] = function() {
+		$.orangevolt.parse[ type] = $.orangevolt.parse.Rule[ type] = function() {
 			var args = $.makeArray( arguments);
 			
-			args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined)
+			args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
 			return eval( 'create' + type).apply( this, args);
 		};
 	});
@@ -476,7 +527,7 @@
 	 */
 	function createToken(  /**Rule*/prevSibling, /*token*/token /**, token*/) {
 		var self = sibling = $.orangevolt.parse.Rule( prevSibling, token);
-		self.type = 'token';
+		self.type = 'Token';
 		for( var i=2; i<arguments.length; i++) {
 			sibling = createToken( sibling, arguments[i]);
 		}
@@ -490,6 +541,12 @@
 					if( this.token==match.token) {
 						parser.consume();
 						return $.orangevolt.parse.AST( this, match, prevSibling, []);
+					} else {
+						return parser.error({
+							msg : 'Token<' + this.token + '> expected but Token<' + match.token + '> given',
+							rule : this, 
+							match : match
+						});
 					}
 				}
 			});
@@ -498,7 +555,7 @@
 		
 		return self;
 	}
-	
+
 	/**
 	 * 
 	 * static && instance method : creates a OneOf rule 
@@ -506,33 +563,50 @@
 	function createOneOf(  /**Rule*/prevSibling, /*token*/token, child/*, child1, child2 ...*/) {
 		var children = $.makeArray( arguments).splice( 2);
 		var self = $.orangevolt.parse.Rule( prevSibling, token, children);
-		self.type = 'oneOf';
+		self.type = 'OneOf';
 		
 		$.extend( self, $.orangevolt.parse.Rule, {
 			adapt : function( parser, /**AST*/prevSibling) {
-				var position = { line : parser.reader.line, column : parser.reader.column};
+				var position = parser.position;
 				
+				var errors = [];
+				var ast;
 				for( var i=0; i<this.children.length; i++) {
 					var rule = this.children[i];
 						
-					var ast = rule.parse( parser);
+					ast = rule.parse( parser);
 									
-					if( ast) { 		// if node chain evaluation was successful
-						if( rule.getChainLength()==ast.getChainLength()) {
-							return $.orangevolt.parse.AST( 
-								this, 
-								$.orangevolt.parse.Match( '', [''], /*regex*/undefined, this.token, position), 
-								prevSibling, 
-								[ast]
-							);							
-						}
-						else { 				// else roll back incomplete parsed node chain					
-							parser.rollback( ast);
-						}
+					if( !(ast instanceof $.orangevolt.parse.Error)) { 		// if node chain evaluation was successful
+						return $.orangevolt.parse.AST( 
+							this, 
+							$.orangevolt.parse.Match( '', [''], /*regex*/undefined, this.token, position), 
+							prevSibling, 
+							[ast]
+						);							
+					} else {
+						errors.push( ast);
 					}
 				}
 				
-				return undefined; 
+				if( errors.length) {
+					for( var i=0; i<errors.length; i++) {
+						errors[i] = (function( error) {
+							if( error.child) {
+								return arguments.callee( error.child);   
+							} else {
+								var s = errors[i].rule.type + '<' + errors[i].rule.token + '> ';
+								if( errors[i]!==error) {
+									s += error.rule.token + ' ...';
+								}
+								return s;
+							}
+						})( errors[i]);
+					}
+				}
+				return parser.error({
+					msg   : 'OneOf<' + this.token + '> : one of ' + /*this._childRuleNames()*/errors.join( ', ') + ' expected but character "' + parser.next().token + '" found.',
+					rule  : this
+				});
 			}
 		});
 		return self;
@@ -547,42 +621,47 @@
 	 */
 	function createOneOrMore (  /**Rule*/prevSibling, /*token*/token, child) {
 		var self = $.orangevolt.parse.Rule( prevSibling, token, [ child]);
-		self.type = 'oneOrMore';
+		self.type = 'OneOrMore';
 		
 		$.extend( self, $.orangevolt.parse.Rule, {
 			adapt : function( parser, /**AST*/prevSibling) {
-				var position = { line : parser.reader.line, column : parser.reader.column};
-				
+				var position = parser.position;
 				var childChainLength = this.children[0].getChainLength();		
 				var asts = [];
 				
+				var ast;
 				do {
-					var ast = this.children[0].parse( parser);
+					ast = this.children[0].parse( parser);
 									
-					if( ast) { 		// if node chain evaluation was successful
-						if( childChainLength==ast.getChainLength()) {
-							asts.push( ast);
-							continue;		// try again
-						}
-						else { 				// else roll back incomplete parsed node chain					
-							parser.rollback( ast);
-						}
+					if( !(ast instanceof $.orangevolt.parse.Error)) { 		// if node chain evaluation was successful
+						asts.push( ast);
+						continue;											// try again
+					} else { 												// else roll back incomplete parsed node chain					
+						parser.rollback( undefined);
 					}
 					
 					break;
 				}
 				while( true);
 				
-				if( this.type=='zeroOrMore' || asts.length) {	// if its a zeroormore rule or it has children
+				if( this.type=='ZeroOrMore' || asts.length) {	// if its a zeroormore rule or it has children
 					return $.orangevolt.parse.AST( 
 						this, 
 						$.orangevolt.parse.Match( '', [''], /*regex*/undefined, this.token, position), 
 						prevSibling, 
 						asts
 					);
-				}  
+				} 
 				
-				return undefined;
+				while( asts.length) {
+					parser.rollback( asts.pop());
+				}
+				
+				return parser.error({
+					msg   : 'OneOrMore<' + this.token + '> : one or more ' + this._childRuleNames() + ' expected.',
+					rule  : this,
+					child : (ast instanceof $.orangevolt.parse.Error) ? ast : undefined
+				});
 			}
 		});
 		
@@ -595,7 +674,20 @@
 	 */
 	function createZeroOrMore(  /**Rule*/prevSibling, /*token*/token, child) {
 		 var rule = createOneOrMore( prevSibling, token, child); 
-		 rule.type = 'zeroOrMore';
+		 rule.type = 'ZeroOrMore';
+		 
+		 var adapt = rule.adapt;
+		 rule.adapt = function( parser, /*AST*/prevSibling) {
+			var ast = adapt.call( rule, parser, prevSibling);  
+			
+			if( (ast instanceof $.orangevolt.parse.Error)) {
+				ast.msg = 'ZeroOrMore<' + this.token + '> : ' + this._childRuleNames() + ' zero or more times expected.';
+				return ast;
+			}
+			
+			return ast;
+		};
+		 
 		 return rule;
 	} 
 	 
@@ -607,36 +699,41 @@
 	 */
 	function createRepeat( /**Rule*/prevSibling, /*token*/token, minTimes, maxTimes, child) {
 		var self = $.orangevolt.parse.Rule( prevSibling, token, [ child]);
-		self.type = 'repeat';	// will be overwritten by concrete rule types
+		self.type = 'Repeat';	// will be overwritten by concrete rule types
 		
 		$.extend( self, $.orangevolt.parse.Rule, {
 			adapt : function( parser, /**AST*/prevSibling) {
-				var position = { line : parser.reader.line, column : parser.reader.column};
+				var position = parser.position;
 				
 				var childChainLength = this.children[0].getChainLength();		
 				var asts = [];
 				
+				var ast;
 				do {
-					var ast = this.children[0].parse( parser);
+					ast = this.children[0].parse( parser);
 									
-					if( ast && childChainLength==ast.getChainLength()) { // if node chain evaluation was successful
+					if( ast instanceof $.orangevolt.parse.Error) {
+						parser.rollback();
+						
+						for( var i=asts.length-1; i>=0; i--) {
+							parser.rollback( asts[i]);
+						}
+				
+						if( minTimes>0) {
+							return parser.error({
+								msg   : 'Repeat<' + this.token + '> : ' + '(' + minTimes + ',' + maxTimes + ') times ' + this._childRuleNames() + ' expected but matched ' + asts.length + ' times.',
+								rule  : this,
+								child : (ast instanceof $.orangevolt.parse.Error) ? ast : undefined 
+							});
+						}
+					} else {
 						asts.push( ast);
 						
 						if( asts.length<maxTimes) { // !maxTimes reached ? 
 							continue;				// -> try again
 						}
 					}
-					
-					if( !ast || childChainLength!=ast.getChainLength() || asts.length<minTimes) {
-						ast && parser.rollback( ast);
-						
-						while( asts.length) {
-							parser.rollback( asts.pop());
-						}
-						
-						return undefined;
-					}
-					
+										
 					break;
 				}
 				while( true);
@@ -658,7 +755,19 @@
 	 */ 
 	function createOnce( /**Rule*/prevSibling, /*token*/token, child) {
 		var rule = createRepeat( prevSibling, token, 1, 1, child);
-		rule.type = 'once';
+		rule.type = 'Once';
+		
+		var adapt = rule.adapt;
+		rule.adapt = function( parser, /*AST*/prevSibling) {
+			var ast = adapt.call( rule, parser, prevSibling);  
+			
+			if( (ast instanceof $.orangevolt.parse.Error)) {
+				ast.msg = 'Once<' + this.token + '> : ' + this._childRuleNames() + ' expected.'; 
+				return ast;
+			}
+			
+			return ast;
+		};
 		
 		return rule;
 	}
@@ -668,8 +777,20 @@
 	 */ 
 	function createOptional( /**Rule*/prevSibling, /*token*/token, child) {
 		var rule = createRepeat( prevSibling, token, 0, 1, child);
-		rule.type = 'optional';
+		rule.type = 'Optional';
 	
+		var adapt = rule.adapt;
+		rule.adapt = function( parser, /*AST*/prevSibling) {
+			var ast = adapt.call( rule, parser, prevSibling);  
+			
+			if( (ast instanceof $.orangevolt.parse.Error)) {
+				ast.msg = 'Optional<' + this.token + '> : a optional ' + this._childRuleNames() + ' expected.';
+				return ast;
+			}
+			
+			return ast;
+		};
+
 		return rule;
 	}
 	
@@ -678,8 +799,20 @@
 	 */ 
 	function createLoop( /**Rule*/prevSibling, /*token*/token, /*int*/nTimes, child) {
 		var rule = createRepeat( prevSibling, token, nTimes, nTimes, child);
-		rule.type = 'loop';
-	
+		rule.type = 'Loop';
+
+		var adapt = rule.adapt;
+		rule.adapt = function( parser, /*AST*/prevSibling) {
+			var ast = adapt.call( rule, parser, prevSibling);  
+			
+			if( (ast instanceof $.orangevolt.parse.Error)) {
+				ast.msg = 'Loop<' + this.token + '> : ' + nTimes + ' times ' + this._childRuleNames() + ' expected.';
+				return ast;
+			}
+			
+			return ast;
+		};
+		
 		return rule;
 	}
 	
@@ -693,13 +826,13 @@
 	 */
 	function createTerm( /**Rule*/prevSibling, /*token*/token) {
 		var self = $.orangevolt.parse.Rule( prevSibling, token, []);
-		self.type = 'term';	
+		self.type = 'Term';	
 		
 		var delegate = undefined;
 			
 		$.extend( self, $.orangevolt.parse.Rule, {
 			adapt : function( parser, /**AST*/prevSibling) {
-				var position = { line : parser.reader.line, column : parser.reader.column};
+				var position = parser.position;
 			
 				if( delegate===undefined) {
 					for( var i=0; i<parser.grammar.rules.length; i++) {
@@ -716,14 +849,20 @@
 			
 				var ast = delegate.parse( parser, prevSibling);
 				
-				if( ast) {
+				if( !(ast instanceof  $.orangevolt.parse.Error)) {
 					return $.orangevolt.parse.AST( 
 						this, 
 						$.orangevolt.parse.Match( '', [''], /*regex*/undefined, this.token, position), 
 						prevSibling, 
 						[ ast ]
 					);
-				}
+				} 
+				
+				return parser.error({
+					msg   : 'Term<' + this.token + '> : ' + delegate.type + '<' + delegate.token + '> expected.',
+					rule  : this,
+					child : (ast instanceof  $.orangevolt.parse.Error) ? ast : undefined 
+				});
 			}
 		});
 		

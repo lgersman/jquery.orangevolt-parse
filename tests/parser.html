@@ -45,17 +45,42 @@ function s( text) {
 		return n.apply( new n(), arguments);
 	}
 }
+
+function ed() {
+	if( this instanceof ed) {
+		$.extend( this, $.orangevolt.parse.Node);
+		this.children = $.makeArray( arguments);
+
+		if( this.children.length==1 && typeof( this.children[0])=='string') {
+			this.text = this.children.pop();
+		} else { 
+			for( var i=0; i<this.children.length; i++) {
+				this.children[i] = this.children[i].getFirstSibling(); 
+			}
+		}
+
+		this.ed = function() {
+			this.nextSibling = ed.apply( undefined, arguments);
+			this.nextSibling.prevSibling = this;
+			return this.nextSibling;
+		}
+
+		return this;
+	} else {
+		return ed.apply( new ed(), arguments);
+	}
+}
 /* -- */
 
 /*
  *  walks down the ast and compares the ast values with the expected data  
  */
 jqUnit.assertAST = function( expected, ast) {
-	if( !ast.children.length && (expected.text || (typeof expected == 'string'))) {
-		jqUnit.equals( expected.text || expected, ast.match.toString());
-	}
-
 	do {
+		if( !ast.children.length && (expected.text || (typeof expected == 'string'))) {
+			jqUnit.equals( expected.text || expected, ast.match.toString());
+		}
+		
 		for( var i=0; i<ast.children.length; i++) {
 			arguments.callee( expected.children[i], ast.children[ i]);
 		}				
@@ -294,6 +319,44 @@ with( jqUnit) {
 		}
 	});	
 
+	
+	
+	test( 'ZeroOrMore 2', function() {
+		with( $.orangevolt.parse) {
+			var g = Grammar({
+				lexer : {
+					skip   : /\s*/, 
+					tokens : {
+						WORD	: /[a-z]+/,	
+						NUMBER  : /\d+(\.\d+)?/,
+						'='		: /\=/,
+						','		: /\,/
+					}
+				},	
+		 		rules : Once( 'assignment',
+				 	Token( 'WORD').Token( '=').Token( 'NUMBER').ZeroOrMore( 'nextAssignment',
+						Token( ',').Term( 'assignment')
+					)
+				)
+			});	
+
+			var expected = ed(
+				ed('alpha').ed('=').ed('1.2').ed(
+					ed( ',').ed( 	 
+						ed('berze').ed('=').ed('3').ed()
+					)
+				)
+			).getFirstSibling();
+			
+			var reader = Reader( 'alpha=1.2, berze=3 \n  ingeborg abfahrt');
+			var p = Parser( { grammar : g, reader : reader});
+			var ast = p.parse();
+			assertAST( expected, ast);
+			equals( ' \n  ingeborg abfahrt', reader.charsLeft);
+			//equals( ' \n  ingeborg abfahrt', reader.charsLeft);
+		}
+	});
+	
 	test( 'rule OneOf 2', function() {
 		with( $.orangevolt.parse) {
 			var g = Grammar({
@@ -306,31 +369,31 @@ with( jqUnit) {
 					}
 				}, 
 				rules : [
-					Rule.ZeroOrMore( 'lines',
-						Rule.Term( 'line')
+					ZeroOrMore( 'lines',
+						Term( 'line')
 					),
-					Rule.OneOf( 'line',
-						Rule.Token( 'comment'),
-						Rule.Token( 'word','assign','word')
+					OneOf( 'line',
+						Token( 'comment'),
+						Token( 'word').Token('assign').Token('word')
 					)
 				]
 			});
 
-			var expected = n(
-				n( s('alpha').s('=').s( 'eins')),	
-				n( s('beta').s('=').s( 'zwei')),
-				n( s('# a simple comment')),
-				n( s('gamma').s('=').s( 'drei'))
-			).getFirstSibling();
-
+			var expected = ed( 
+				ed( ed('alpha').ed('=').ed( 'eins')),
+				ed( ed('beta').ed('=').ed( 'zwei')),
+				ed( ed('# a simple comment')),
+				ed( ed('gamma').ed('=').ed( 'drei'))
+			).getFirstSibling(); 
+			
 			var reader = Reader( 'alpha=eins\nbeta=zwei\r\n# a simple comment\ngamma=drei\ningeborg abfahrt');
 			var p = Parser( { grammar : g, reader : reader});
 			var ast = p.parse();
 			assertAST( expected, ast);
 			equals( '\ningeborg abfahrt', reader.charsLeft);
 		}
-	});
-
+	});	
+	
 	test( 'calculator', function() {
 		/*
 		expr( 

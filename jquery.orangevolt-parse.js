@@ -30,9 +30,7 @@
 			}; 	
 
 				// untrack line/column
-			var untrack = function( arg) {
-				var string = $.isArray( arg) ? arg[0].toString() : arg;
-
+			var untrack = function( string) {
 				for( var i=string.length-1; i>=0; i--) {
 					offset--;
 					if( line_breaks.length>0 && line_breaks[ line_breaks.length-1].offset==offset+1) {
@@ -73,22 +71,22 @@
 		}
 	};
 
-	$.orangevolt.parse.Match = function( skipped, match, regexp, token, position) {
+	$.orangevolt.parse.Match = function( skipped, value, regexp, token, position) {
 		if( this instanceof $.orangevolt.parse.Match) {
 			this.skipped  = skipped;
-			this.match    = match;
+			this.value    = value;
 			this.regexp    = regexp;
 			this.token 	  = token; 
 			this.position = position;
 			$.extend( this, {
 				toString : function() {
-					return match[0]; 
+					return this.value; 
 				} 
 			});
 			
 			return this;
 		}
-		else return new $.orangevolt.parse.Match( skipped, match, regexp, token, position);
+		else return new $.orangevolt.parse.Match( skipped, value, regexp, token, position);
 	};
 
 	$.orangevolt.parse.LexerException = function( msg) {
@@ -128,7 +126,7 @@
 						token = this.tokens[ token];
 					}
 				
-					var skipped = reader.next( this.skip) || [''];
+					var skipped = (reader.next( this.skip) || [''])[0];
 					var position = { line : reader.line, column : reader.column};
 					
 					var match = reader.next( token || tokenRegexp);					
@@ -142,7 +140,7 @@
 							} 
 						}
 						
-						return $.orangevolt.parse.Match( skipped, match, token, this.getTokenName( token), position);
+						return $.orangevolt.parse.Match( skipped, match[0], token, this.getTokenName( token), position);
 					} else {
 						if( reader.charsLeft.length) {
 							reader.unread( skipped);
@@ -150,12 +148,12 @@
 							
 							throw $.orangevolt.parse.LexerException( 'lexer : no token matched input "' + reader.charsLeft + '"');
 						} else {
-							return $.orangevolt.parse.Match( skipped, [''], /$/, $.orangevolt.parse.Lexer.EOF, position);
+							return $.orangevolt.parse.Match( skipped, '', /$/, $.orangevolt.parse.Lexer.EOF, position);
 						}
 					}
 				},
 				unread : function( reader, match) {
-					reader.unread( match.match);
+					reader.unread( match.value);
 					reader.unread( match.skipped);					
 				},
 				getTokenName : function( regexp) {
@@ -373,14 +371,14 @@
 				prevSibling : prevSibling,
 				children 	: children,
 				toString    : function() {
-					return this.rule.type + ' ' + this.rule.token + '(' + this.match.match[0] + ')';
+					return this.rule.type + ' ' + this.rule.token + '(' + this.match.value + ')';
 				},
 				html		: function() {
 					var html = $('<div/>');
 					var ast = this;
 					while( ast) {
 						var label = $( '<div style="margin-left:10px;border:1px solid black;float:left;"/>')
-						.append( '<i style="color:grey">' + ast.rule.type + '</i>' + ' <b>' + ast.rule.token + '<font color="red"> ' + ast.match.match[0] + '</font></b>')
+						.append( '<i style="color:grey">' + ast.rule.type + '</i>' + ' <b>' + ast.rule.token + '<font color="red"> ' + ast.match.value + '</font></b>')
 						.appendTo( html);
 						if( ast.children.length) {
 							var children = $('<div style=""/>').appendTo( label);
@@ -426,7 +424,7 @@
 							this.prevSibling.nextSibling = ast.getFirstSibling();
 							ast.getFirstSibling().prevSibling = this.prevSibling; 
 						}
-						if( this.nextSibling) {
+						if( this.nextSibling && this.nextSibling!=ast) {
 							this.nextSibling.prevSibling = ast.getLastSibling();
 							ast.getLastSibling().nextSibling = this.nextSibling; 
 							this.nextSibling.purge( condition);
@@ -434,8 +432,11 @@
 						
 						return ast.getFirstSibling();
 					}
-					
+												   
 					this.nextSibling && this.nextSibling.purge( condition);
+
+						// --
+
 					
 					return this;
 				}
@@ -579,7 +580,7 @@
 					if( !(ast instanceof $.orangevolt.parse.Error)) { 		// if node chain evaluation was successful
 						return $.orangevolt.parse.AST( 
 							this, 
-							$.orangevolt.parse.Match( '', [''], /*regex*/undefined, this.token, position), 
+							$.orangevolt.parse.Match( '', '', /*regex*/undefined, this.token, position), 
 							prevSibling, 
 							[ast]
 						);							
@@ -647,7 +648,7 @@
 				if( this.type=='ZeroOrMore' || asts.length) {	// if its a zeroormore rule or it has children
 					return $.orangevolt.parse.AST( 
 						this, 
-						$.orangevolt.parse.Match( '', [''], /*regex*/undefined, this.token, position), 
+						$.orangevolt.parse.Match( '', '', /*regex*/undefined, this.token, position), 
 						prevSibling, 
 						asts
 					);
@@ -740,7 +741,7 @@
 				
 				return $.orangevolt.parse.AST( 
 					this, 
-					$.orangevolt.parse.Match( '', [''], /*regex*/undefined, this.token, position), 
+					$.orangevolt.parse.Match( '', '', /*regex*/undefined, this.token, position), 
 					prevSibling, 
 					asts
 				);
@@ -852,7 +853,7 @@
 				if( !(ast instanceof  $.orangevolt.parse.Error)) {
 					return $.orangevolt.parse.AST( 
 						this, 
-						$.orangevolt.parse.Match( '', [''], /*regex*/undefined, this.token, position), 
+						$.orangevolt.parse.Match( '', '', /*regex*/undefined, this.token, position), 
 						prevSibling, 
 						[ ast ]
 					);

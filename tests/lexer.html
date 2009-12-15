@@ -26,42 +26,42 @@ with( jqUnit) {
 	test( 'simple', function() {
 		var reader = $.orangevolt.parse.Reader( 'lars is 36 years old');
 
-		equals( 'lars',lexer.next( reader, 'word').toString());
-		equals( 'is',lexer.next( reader, lexer.tokens.word).toString());
-		equals( '36',lexer.next( reader, 'number').toString());
-		equals( 'years',lexer.next( reader, 'word').toString());
-		equals( 'old',lexer.next( reader, 'word').toString());
-		equals( '',lexer.next( reader, lexer.tokens.eof).toString());
+		equals( 'lars',lexer.next( reader, 'word').value);
+		equals( 'is',lexer.next( reader, lexer.tokens.word).value);
+		equals( '36',lexer.next( reader, 'number').value);
+		equals( 'years',lexer.next( reader, 'word').value);
+		equals( 'old',lexer.next( reader, 'word').value);
+		equals( '',lexer.next( reader, lexer.tokens.eof).value);
 	});
 	
 	test( 'unread', function() {
 		var reader = $.orangevolt.parse.Reader( 'lars is 36 years old');
-		equals( 'lars',lexer.next( reader, 'word').toString());
+		equals( 'lars',lexer.next( reader, 'word').value);
 
 		var match = lexer.next( reader, lexer.tokens.word);
-		equals( 'is', match.toString());
+		equals( 'is', match.value);
 
 		lexer.unread( reader, match);
-		equals( 'is',lexer.next( reader, lexer.tokens.word).toString());
+		equals( 'is',lexer.next( reader, lexer.tokens.word).value);
 		
-		equals( '36',lexer.next( reader, 'number').toString());
-		equals( 'years',lexer.next( reader, 'word').toString());
-		equals( 'old',lexer.next( reader, 'word').toString());
-		equals( '',lexer.next( reader, lexer.tokens.eof).toString());
+		equals( '36',lexer.next( reader, 'number').value);
+		equals( 'years',lexer.next( reader, 'word').value);
+		equals( 'old',lexer.next( reader, 'word').value);
+		equals( '',lexer.next( reader, lexer.tokens.eof).value);
 	});	
 
 	test( 'match failed unread', function() {
 		var reader = $.orangevolt.parse.Reader( 'lars is 36 years old');
 
-		equals( 'lars',lexer.next( reader, 'word').toString());
+		equals( 'lars',lexer.next( reader, 'word').value);
 
 		var match = lexer.next( reader, lexer.tokens.word);
-		equals( 'is', match.toString());
+		equals( 'is', match.value);
 		
-		equals( '36',lexer.next( reader, 'number').toString());
-		equals( 'years',lexer.next( reader, 'word').toString());
-		equals( 'old',lexer.next( reader, 'word').toString());
-		equals( '',lexer.next( reader, lexer.tokens.eof).toString());
+		equals( '36',lexer.next( reader, 'number').value);
+		equals( 'years',lexer.next( reader, 'word').value);
+		equals( 'old',lexer.next( reader, 'word').value);
+		equals( '',lexer.next( reader, lexer.tokens.eof).value);
 	});
 
 	test( 'line/column', function() {

@@ -86,7 +86,9 @@ jqUnit.assertAST = function( expected, ast) {
 		}				
 		expected = expected.nextSibling;	
 	} while( ast=ast.nextSibling);
-};		
+};
+
+jqUnit.notest = function() {}
 /* -- */
 
 with( jqUnit) {
@@ -150,7 +152,7 @@ with( jqUnit) {
 		with( $.orangevolt.parse) {
 			var g = Grammar({
 				lexer : {
-					skip   : /\s*/m,
+					skip   : /\s*/,
 					tokens : {
 						euro   : /€/,
 						dollar : /\$/,
@@ -167,7 +169,7 @@ with( jqUnit) {
 			var ast = p.parse();
 			var expected = ['24', '€'];
 			for( var i=0; i<ast.children.length; i++) {
-				equals( expected[i], ast.children[i].match.toString());
+				equals( expected[i], ast.children[i].match.value);
 			}
 			equals( ' sind im Pott.', p.reader.charsLeft);
 		
@@ -176,7 +178,7 @@ with( jqUnit) {
 				{ text : ' $16 ', 	 expected : [ '$', '16'], charsLeft : ' '},
 				{ text : ' $16.45 are in the jackpot', expected : [ '$', '16.45'], charsLeft : ' are in the jackpot'},
 				{ text : ' \r $\n16.45 are in the jackpot', expected : [ '$', '16.45'], charsLeft : ' are in the jackpot'},
-				{ text : '\r\n \r $\n16.45 are in the jackpot', expected : [ '$', '16.45'], charsLeft : ' are in the jackpot'},
+				{ text : '\r\n \r $\n16.45 are in the jackpot', expected : [ '$', '16.45'], charsLeft : ' are in the jackpot'}
 			];
 		
 			for( var i=0; i<data.length; i++) {
@@ -185,9 +187,9 @@ with( jqUnit) {
 				
 				var expected = data[i].expected;
 				for( var r=0; r<ast.children.length; r++) {
-					equals( expected[r], ast.children[r].match.toString());
+					equals( ast.children[r].match.value, expected[r]);
 				}
-				equals( data[i].charsLeft, p.reader.charsLeft);
+				equals( p.reader.charsLeft, data[i].charsLeft);
 			}
 		}
 	});
@@ -449,7 +451,7 @@ with( jqUnit) {
 			var reader = Reader( '23 * (14 + 4 + 2 + 5) + tetraeder');
 			var p = Parser( { grammar : g, reader : reader});
 			var ast = p.parse();
-			console.dir( ast);
+			console.dir && console.dir( ast);
 			
 			equals( ' + tetraeder', reader.charsLeft);
 
@@ -485,7 +487,7 @@ with( jqUnit) {
 				switch( ast.rule.token) {
 					case 'open_brace' 	: return arguments.callee( ast.nextSibling, context);
 					case 'close_brace' 	: return context;
-					case 'number' 		: return parseFloat( ast.match);
+					case 'number' 		: return parseFloat( ast.match.value);
 					case 'expr'   		:
 					case 'mexpr'  		:				
 					case 'atom'   		: {
@@ -496,7 +498,7 @@ with( jqUnit) {
 					case 'r_expr' 		: {
 						for( var i=0; i<ast.children.length;i++) {
 							var rval =  arguments.callee( ast.children[i].nextSibling); 
-							switch( ast.children[i].children[0].match.toString()) {
+							switch( ast.children[i].children[0].match.value) {
 								case '*' : context *= rval; break;
 								case '/' : context /= rval; break;
 								case '+' : context += rval; break;
@@ -511,14 +513,14 @@ with( jqUnit) {
 			var optimizedCalculatorVisitor = function( ast, context) {
 				switch( ast.rule.token) {
 					case 'number' : {
-						var val = parseFloat( ast.match);	
+						var val = parseFloat( ast.match.value);	
 						// execute r_expr right of us if any
 						return ast.nextSibling ? arguments.callee( ast.nextSibling, val) : val; 
 					}
 					case 'r_expr' : {
 						for( var i=0; i<ast.children.length;i++) {
 							var rval =  arguments.callee( ast.children[i].nextSibling); 
-							switch( ast.children[i].match.toString()) {
+							switch( ast.children[i].match.value) {
 								case '*' : context *= rval; break;
 								case '/' : context /= rval; break;
 								case '+' : context += rval; break;

@@ -13,11 +13,11 @@
 			var offset = 0;
 			
 				// track line/column
-			var track = function( string) {
-				for( var i=0; i<string.length; i++) {
+			var track = function( s) {
+				for( var i=0; i<s.length; i++) {
 					offset++;
 					
-					if( string[i]=='\n' || (string[i]=='\r' && string.length>i+1 && string[i+1]!='\n')) {
+					if( s.charAt(i)=='\n' || (s.charAt(i)=='\r' && s.length>i+1 && s.charAt(i+1)!='\n')) {
 						line_breaks.push( { offset : offset, column : this.column});
 						this.line++;
 						this.column=1;
@@ -26,12 +26,12 @@
 					}
 				} 
 
-				this.charsLeft = this.charsLeft.substring( string.length);
+				this.charsLeft = this.charsLeft.substring( s.length);
 			}; 	
 
 				// untrack line/column
-			var untrack = function( string) {
-				for( var i=string.length-1; i>=0; i--) {
+			var untrack = function( s) {
+				for( var i=s.length-1; i>=0; i--) {
 					offset--;
 					if( line_breaks.length>0 && line_breaks[ line_breaks.length-1].offset==offset+1) {
 						this.line--;
@@ -41,7 +41,7 @@
 					}
 				} 
 				
-				this.charsLeft = string + this.charsLeft;
+				this.charsLeft = s + this.charsLeft;
 			};
 			
 			$.extend( this, {
@@ -49,9 +49,8 @@
 				line      : 1,
 				column    : 1,
 				next : function( regexp) {
-					var index = this.charsLeft.search( regexp);
-					if( index==0) {
-						var match = this.charsLeft.match( regexp);
+					var match = this.charsLeft.match( regexp);
+					if( match && match.index==0) {
 						track.call( this, match[0]);						
 						
 						return match;
@@ -78,11 +77,9 @@
 			this.regexp    = regexp;
 			this.token 	  = token; 
 			this.position = position;
-			$.extend( this, {
-				toString : function() {
-					return this.value; 
-				} 
-			});
+			this.toString = this.asString = function() {
+				return this.value; 
+			};
 			
 			return this;
 		}
@@ -91,7 +88,7 @@
 
 	$.orangevolt.parse.LexerException = function( msg) {
 		if( this instanceof $.orangevolt.parse.LexerException) {
-			this.toString = function() {
+			this.asString = this.toString = function() {
 				return msg;
 			};
 		} else {
@@ -132,12 +129,25 @@
 					var match = reader.next( token || tokenRegexp);					
 					if( match!==undefined) {
 						if( typeof token == 'undefined') {
-							for( var i=1; i<match.length; i++) {
-								if( match[i]!==undefined) {
-									token = this.tokens[ tokenNames[i-1]];
-									break;
+							
+							if( match[0].length>0) { 
+								for( var i=1; i<match.length; i++) {
+									if( match[i]) {
+										token = this.tokens[ tokenNames[i-1]];
+										break;
+									}
 								}
-							} 
+							} else {		// special case a token matched an empty string
+								for( var t in tokens) {
+									if( tokens.hasOwnProperty( t)) {
+										var regexp = this.tokens[ t];
+										if( regexp.test( match[0])) {
+											token = regexp;
+											break;
+										}
+									} 
+								}
+							}
 						}
 						
 						return $.orangevolt.parse.Match( skipped, match[0], token, this.getTokenName( token), position);
@@ -200,24 +210,23 @@
 
 	$.orangevolt.parse.Error = function( options) {
 		if( this instanceof $.orangevolt.parse.Error) {
-			return $.extend( this, options, {
-				toString : function() {
-					if( this.child) {
-						return this.child.toString(); 
-					} else {
-						return (this.position ? this.position.line + ',' + this.position.column + ' : ' : '') + this.msg;
-					}
-				},
-				getStackTrace : function() {
-					if( this.child) {
-						var stackTrace = this.child.getStackTrace();
-						stackTrace.push( this);
-						return stackTrace; 
-					} else {
-						return [ this];
-					}
-				} 
-			});
+			$.extend( this, options);
+			this.toString = this.asString = function() {
+				if( this.child) {
+					return this.child.asString(); 
+				} else {
+					return (this.position ? this.position.line + ',' + this.position.column + ' : ' : '') + this.msg;
+				}
+			};
+			this.getStackTrace = function() {
+				if( this.child) {
+					var stackTrace = this.child.getStackTrace();
+					stackTrace.push( this);
+					return stackTrace; 
+				} else {
+					return [ this];
+				}
+			};
 		}
 		else return new $.orangevolt.parse.Error( options);
 	};
@@ -364,15 +373,16 @@
 			if( prevSibling) {
 				prevSibling.nextSibling = this;
 			}
+
+			this.toString = this.asString = function() {
+				return this.rule.type + ' ' + this.rule.token + '(' + this.match.value + ')';
+			};
 			
 			$.extend( this, $.orangevolt.parse.Node, {
 				rule 		: rule,
 				match 		: match,
 				prevSibling : prevSibling,
 				children 	: children,
-				toString    : function() {
-					return this.rule.type + ' ' + this.rule.token + '(' + this.match.value + ')';
-				},
 				html		: function() {
 					var html = $('<div/>');
 					var ast = this;
@@ -485,7 +495,7 @@
 						return result;
 					} catch( ex) {
 						return parser.error({
-							msg   : rule.type + '<' + rule.token + '> : ' + ex.toString(),
+							msg   : rule.type + '<' + rule.token + '> : ' + ex.asString(),
 							rule  : this, 
 							match : undefined
 						});	
@@ -562,7 +572,8 @@
 	 * static && instance method : creates a OneOf rule 
 	 */
 	function createOneOf(  /**Rule*/prevSibling, /*token*/token, child/*, child1, child2 ...*/) {
-		var children = $.makeArray( arguments).splice( 2);
+		var children = $.makeArray( arguments);
+		children.shift(); children.shift();  // remove first 2 entries
 		var self = $.orangevolt.parse.Rule( prevSibling, token, children);
 		self.type = 'OneOf';
 		

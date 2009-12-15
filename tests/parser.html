@@ -451,8 +451,7 @@ with( jqUnit) {
 			var reader = Reader( '23 * (14 + 4 + 2 + 5) + tetraeder');
 			var p = Parser( { grammar : g, reader : reader});
 			var ast = p.parse();
-			console.dir && console.dir( ast);
-			
+						
 			equals( ' + tetraeder', reader.charsLeft);
 
 			var output = $('<div>'); 

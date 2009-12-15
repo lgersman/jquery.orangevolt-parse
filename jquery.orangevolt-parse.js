@@ -200,6 +200,13 @@
 					var reader = $.orangevolt.parse.Reader( input);
 					
 					return $.orangevolt.parse.Parser( { grammar : this, reader : reader}).parse();
+				},
+				getRule : function( token) {
+					for( var i=0; i<this.rules.length; i++) {
+						if( this.rules[i].token==token) {
+							return this.rules[i];
+						}
+					}
 				}
 			});
 			
@@ -449,6 +456,15 @@
 
 					
 					return this;
+				},
+				text : function() {
+					var s = this.match.skipped + this.match.value;
+					
+					for( var i=0; i<this.children.length; i++) {
+						s = s.concat( this.children[i].text());
+					}
+					
+					return this.nextSibling ? s + this.nextSibling.text() : s;
 				}
 			});
 			
@@ -494,11 +510,15 @@
 						
 						return result;
 					} catch( ex) {
-						return parser.error({
-							msg   : rule.type + '<' + rule.token + '> : ' + ex.asString(),
-							rule  : this, 
-							match : undefined
-						});	
+						if( (ex instanceof Error)) {
+							throw ex;
+						} else {
+							return parser.error({
+								msg   : rule.type + '<' + rule.token + '> : ' + ($.isFunction( ex.asString) ? ex.asString() : ex),
+								rule  : this, 
+								match : undefined
+							});
+						}
 					} finally {
 						(ast instanceof $.orangevolt.parse.Error) && result && parser.rollback( result);
 					} 
@@ -847,15 +867,10 @@
 				var position = parser.position;
 			
 				if( delegate===undefined) {
-					for( var i=0; i<parser.grammar.rules.length; i++) {
-						if( parser.grammar.rules[i].token==this.token) {
-							delegate = parser.grammar.rules[i];
-							break;
-						}
-					}
+					delegate = parser.grammar.getRule( this.token);
 
 					if( !delegate) {
-						throw 'term : could not resolve rule "' + this.token + '"';
+						throw Error( 'term : could not resolve rule "' + this.token + '"');
 					}
 				}
 			

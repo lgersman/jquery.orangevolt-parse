@@ -137,7 +137,7 @@
 										break;
 									}
 								}
-							} else {		// special case a token matched an empty string
+							} else {		// special case : a token matched an empty string
 								for( var t in tokens) {
 									if( tokens.hasOwnProperty( t)) {
 										var regexp = this.tokens[ t];
@@ -391,14 +391,19 @@
 				prevSibling : prevSibling,
 				children 	: children,
 				html		: function() {
-					var html = $('<div/>');
 					var ast = this;
+					
+					var html = $('<div class="ast"/>')
+					.addClass( 'ast-rule-type-' + ast.rule.type.toLowerCase());					
 					while( ast) {
-						var label = $( '<div style="margin-left:10px;border:1px solid black;float:left;"/>')
-						.append( '<i style="color:grey">' + ast.rule.type + '</i>' + ' <b>' + ast.rule.token + '<font color="red"> ' + ast.match.value + '</font></b>')
-						.appendTo( html);
+						var label = $( '<div class="ast-label"/>')
+						.append( 
+							$( '<div class="ast-label-type"/>').text( ast.rule.type),
+							$( '<div class="ast-label-token"/>').text( ast.rule.token),
+							$( '<div class="ast-label-value"/>').text( ast.match.value)
+						).appendTo( html);
 						if( ast.children.length) {
-							var children = $('<div style=""/>').appendTo( label);
+							var children = $('<div class="ast-children"/>').appendTo( label);
 							for( var i=0; i<ast.children.length; i++) {
 								children.append( ast.children[i].html());
 							}
@@ -460,6 +465,7 @@
 			if( this.prevSibling) {
 				this.prevSibling.nextSibling = ast.getFirstSibling();
 				ast.getFirstSibling().prevSibling = this.prevSibling; 
+				arguments.callee.call( this.prevSibling, condition);
 			}
 			if( this.nextSibling && this.nextSibling!=ast) {
 				this.nextSibling.prevSibling = ast.getLastSibling();
@@ -675,7 +681,7 @@
 					}
 				}
 				return parser.error({
-					msg   : 'OneOf<' + this.token + '> : one of ' + /*this._childRuleNames()*/errors.join( ', ') + ' expected but character "' + parser.next().token + '" found.',
+					msg   : 'OneOf<' + this.token + '> : one of ' + /*this._childRuleNames()*/errors.join( ', ') + ' expected ' + (parser.next() ? 'but token ' + parser.next().token + '("' + parser.next().value + '")' : 'no matching token') + ' found.',
 					rule  : this
 				});
 			}
@@ -890,27 +896,23 @@
 	/**
 	 * creates a term rule. a term is a delegate to a root rule.
 	 * 
-	 * a term rule is a rule referencing another rule by its name (parameter token).
+	 * a term rule is a rule referencing another rule by its token.
 	 * in other words : term( 'a') will invoke the root rule with token 'a'.
 	 * 
-	 * a term( 'a') will result exactly in what the rule 'a' returned 
+	 * a term( 'a') will result exactly in what rule 'a' returned 
 	 */
 	function createTerm( /**Rule*/prevSibling, /*token*/token) {
 		var self = $.orangevolt.parse.Rule( prevSibling, token, []);
 		self.type = 'Term';	
 		
-		var delegate = undefined;
-			
 		$.extend( self, $.orangevolt.parse.Rule, {
 			adapt : function( parser, /**AST*/prevSibling) {
 				var position = parser.position;
 			
-				if( delegate===undefined) {
-					delegate = parser.grammar.getRule( this.token);
+				var delegate = parser.grammar.getRule( this.token);
 
-					if( !delegate) {
-						throw Error( 'term : could not resolve rule "' + this.token + '"');
-					}
+				if( !delegate) {
+					throw Error( 'term : could not resolve rule "' + this.token + '"');
 				}
 			
 				var ast = delegate.parse( parser, prevSibling);

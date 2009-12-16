@@ -1,11 +1,13 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=7" />
 <title>query.orangevolt.parse - lexer testcase</title>
 
 <link type="text/css" rel="stylesheet" media="screen" href="testsuite.css"/>
-
+<link type="text/css" rel="stylesheet" media="screen" href="jquery.orangevolt-parse.css"/>
 <script language="javascript" src="../lib/jquery-1.3.2.js"></script>
 <script language="javascript" src="lib/jqUnit.js"></script>
 <script language="javascript" src="../jquery.orangevolt-parse.js"></script>
@@ -18,28 +20,37 @@ with( jqUnit) {
 		return { value : value};
 	}
 	
-	function createAST() {
-		var first =  $.orangevolt.parse.AST( { token : 'first'}, match( 'first'), undefined, []);
-		var second = $.orangevolt.parse.AST( { token : 'second'}, match( 'second'), first, []);
-		var third =  $.orangevolt.parse.AST( { token : 'third'}, match( 'third'), second, []);
+	function createASTMock( /*{ symbol : 'foo', nextSibling:..., children: [...]}*/data, /*optional*/prevSibling) {
+		var children = [];
+		for( var i=0; data.children && i<data.children.length; i++) {
+			children.push( arguments.callee( data.children[i]));
+		}
+		
+		var ast = $.orangevolt.parse.AST( { token : data.symbol}, match( data.symbol), prevSibling, children);
 
-		return first.getFirstSibling();
+		if( data.nextSibling) {
+			ast.nextSibling = createASTMock( data.nextSibling, ast);
+		}
+
+		return ast;
 	}
-	
-	test( 'doNothing', function() {
-		var ast = createAST();
+
+	test( 'do nothing', function() {
+		var ast = createASTMock( { symbol : 'first', nextSibling : { symbol : 'second', nextSibling : { symbol : 'third'}}});
 		
 		ast = ast.purge( function( ast, condition) {
 			return this;
 		});
 
+		equals( ast.getChainLength(), 3);
+		
 		setTimeout( function() {
-			$('body').append( $('<p style="width:12000px">').append( ast.html()));
+			$('<div/>').append( $('<div style="width:12000px; overflow:hidden"/>').append( ast.html())).appendTo('body');
 		}, 50);	
 	});	
 
 	test( 'remove head', function() {
-		var ast = createAST();
+		var ast = createASTMock( { symbol : 'first', nextSibling : { symbol : 'second', nextSibling : { symbol : 'third'}}});
 		
 		ast = ast.purge( function( ast, condition) {
 			if( ast.rule.token=='first') {
@@ -48,11 +59,18 @@ with( jqUnit) {
 			return this;
 		});
 
-		$('body').append( $('<p style="width:12000px">').append( ast.html()));
+		equals( ast.getChainLength(), 2);
+		equals( ast.rule.token, 'second');
+		equals( ast.nextSibling.rule.token, 'third');
+		equals( ast.prevSibling, undefined);
+		
+		setTimeout( function() {
+			$('<div/>').append( $('<div style="width:12000px; overflow:hidden"/>').append( ast.html())).appendTo('body');
+		}, 50);	
 	});	
 
 	test( 'remove tail', function() {
-		var ast = createAST();
+		var ast = createASTMock( { symbol : 'first', nextSibling : { symbol : 'second', nextSibling : { symbol : 'third'}}});
 		
 		ast = ast.purge( function( ast, condition) {
 			if( ast.rule.token=='third') {
@@ -61,11 +79,18 @@ with( jqUnit) {
 			return this;
 		});
 
-		$('body').append( $('<p style="width:12000px">').append( ast.html()));
+		equals( ast.getChainLength(), 2);
+		equals( ast.rule.token, 'first');
+		equals( ast.nextSibling.rule.token, 'second');
+		equals( ast.nextSibling.nextSibling, undefined);
+		
+		setTimeout( function() {
+			$('<div/>').append( $('<div style="width:12000px; overflow:hidden"/>').append( ast.html())).appendTo('body');
+		}, 50);	
 	});	
 
 	test( 'remove between', function() {
-		var ast = createAST();
+		var ast = createASTMock( { symbol : 'first', nextSibling : { symbol : 'second', nextSibling : { symbol : 'third'}}});
 		
 		ast = ast.purge( function( ast, condition) {
 			if( ast.rule.token=='second') {
@@ -74,7 +99,191 @@ with( jqUnit) {
 			return this;
 		});
 
-		$('body').append( $('<p style="width:12000px">').append( ast.html()));
+		equals( ast.getChainLength(), 2);
+		equals( ast.rule.token, 'first');
+		equals( ast.nextSibling.rule.token, 'third');
+		
+		setTimeout( function() {
+			$('<div/>').append( $('<div style="width:12000px; overflow:hidden"/>').append( ast.html())).appendTo('body');
+		}, 50);	
+	});	
+
+	test( 'remove last 2 asts', function() {
+		var ast = createASTMock( { symbol : 'first', nextSibling : { symbol : 'second', nextSibling : { symbol : 'third'}}});
+		
+		ast = ast.purge( function( ast, condition) {
+			if( ast.rule.token=='second' || ast.rule.token=='third') {
+				return undefined;
+			}
+			return this;
+		});
+
+		equals( ast.getChainLength(), 1);
+		equals( ast.rule.token, 'first');
+		equals( ast.nextSibling, undefined);
+		equals( ast.prevSibling, undefined);
+		
+		setTimeout( function() {
+			$('<div/>').append( $('<div style="width:12000px; overflow:hidden"/>').append( ast.html())).appendTo('body');
+		}, 50);	
+	});	
+
+	test( 'remove first 2 asts', function() {
+		var ast = createASTMock( { symbol : 'first', nextSibling : { symbol : 'second', nextSibling : { symbol : 'third'}}});
+		
+		ast = ast.purge( function( ast, condition) {
+			if( ast.rule.token=='first' || ast.rule.token=='second') {
+				return undefined;
+			}
+			return this;
+		});
+
+		equals( ast.getChainLength(), 1);
+		equals( ast.rule.token, 'third');
+		equals( ast.nextSibling, undefined);
+		equals( ast.prevSibling, undefined);
+		
+		setTimeout( function() {
+			$('<div/>').append( $('<div style="width:12000px; overflow:hidden"/>').append( ast.html())).appendTo('body');
+		}, 50);	
+	});	
+
+	test( 'replace last sibling by its child', function() {
+		var ast = createASTMock({ 
+			symbol : 'first', 
+			nextSibling : { 
+				symbol : 'second', 
+				nextSibling : { 
+					symbol : 'third',
+					children : [{
+							symbol : 'third_child' 
+						} 
+					]
+				}
+			}
+		});
+		
+		ast = ast.purge( function( ast, condition) {
+			if( ast.rule.token=='third') {
+				return ast.children[0];
+			}
+			return this;
+		});
+
+		equals( ast.getChainLength(), 3);
+		equals( ast.rule.token, 'first');
+		equals( ast.nextSibling.rule.token, 'second');
+		equals( ast.nextSibling.nextSibling.rule.token, 'third_child');
+		
+		setTimeout( function() {
+			$('<div/>').append( $('<div style="width:12000px; overflow:hidden"/>').append( ast.html())).appendTo('body');
+		}, 50);	
+	});	
+
+	test( 'replace second sibling by its child', function() {
+		var ast = createASTMock({ 
+			symbol : 'first', 
+			nextSibling : { 
+				symbol : 'second', 
+				nextSibling : { 
+					symbol : 'third'
+				},
+				children : [{
+						symbol : 'second_child' 
+					} 
+				]
+			}
+		});
+		
+		ast = ast.purge( function( ast, condition) {
+			if( ast.rule.token=='second') {
+				return ast.children[0];
+			}
+			return this;
+		});
+
+		equals( ast.getChainLength(), 3);
+		equals( ast.rule.token, 'first');
+		equals( ast.nextSibling.rule.token, 'second_child');
+		equals( ast.nextSibling.nextSibling.rule.token, 'third');
+		
+		setTimeout( function() {
+			$('<div/>').append( $('<div style="width:12000px; overflow:hidden"/>').append( ast.html())).appendTo('body');
+		}, 50);	
+	});	
+
+	test( 'replace first sibling by its child', function() {
+		var ast = createASTMock({ 
+			symbol : 'first', 
+			nextSibling : { 
+				symbol : 'second', 
+				nextSibling : { 
+					symbol : 'third'
+				}
+			},
+			children : [{
+					symbol : 'first_child' 
+				} 
+			]
+		});
+		
+		ast = ast.purge( function( ast, condition) {
+			if( ast.rule.token=='first') {
+				return ast.children[0];
+			}
+			return this;
+		});
+
+		equals( ast.getChainLength(), 3);
+		equals( ast.rule.token, 'first_child');
+		equals( ast.nextSibling.rule.token, 'second');
+		equals( ast.nextSibling.nextSibling.rule.token, 'third');
+		
+		setTimeout( function() {
+			$('<div/>').append( $('<div style="width:12000px; overflow:hidden"/>').append( ast.html())).appendTo('body');
+		}, 50);	
+	});	
+
+	test( 'replace second recursively', function() {
+		var mkAST = function() {
+			return createASTMock({ 
+				symbol : 'first', 
+				nextSibling : { 
+					symbol : 'second', 
+					nextSibling : { 
+						symbol : 'third'
+					}
+				},
+				children : [{
+						symbol : 'first_child1',
+						children : [{
+								symbol : 'first_child1_child1'
+							}
+						],
+						nextSibling : {
+							symbol : 'first_second'
+						} 
+					} 
+				]
+			});
+		}
+		
+		ast = mkAST().purge( function( ast, condition) {
+			if( ast.rule.token=='first_child1' || ast.rule.token=='first') {
+				return ast.children[0];
+			}
+			return this;
+		});
+
+		equals( ast.getChainLength(), 4);
+		equals( ast.rule.token, 'first_child1_child1');
+		equals( ast.nextSibling.rule.token, 'first_second');
+		equals( ast.nextSibling.nextSibling.rule.token, 'second');
+		equals( ast.nextSibling.nextSibling.nextSibling.rule.token, 'third');
+		
+		setTimeout( function() {
+			$('<div/>').append( $('<div style="width:12000px; overflow:hidden"/>').append( ast.html())).appendTo('body');
+		}, 50);	
 	});	
 }
 </script>

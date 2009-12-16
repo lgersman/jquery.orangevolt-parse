@@ -418,50 +418,14 @@
 				 *
 				 */
 				purge : function( /*function*/condition) {
-					var children = [];
-					for( var i=0; i<this.children.length; i++) {
-						var ast = this.children[i].purge( condition);
-						!ast || children.push( ast);
-					}
-					this.children = children;
-					
-					var ast = condition.call( this, this); 
-					if( ast===undefined) {				// remove ast
-						if( this.prevSibling) {
-							this.prevSibling.nextSibling = this.nextSibling;							
-						}
-						if( this.nextSibling) {
-							this.nextSibling.prevSibling = this.prevSibling;
-							return this.nextSibling.purge( condition);
-						}
-						
-						return undefined;
-					} else if( ast!==this) {			// replace ast by another ast 		
-						if( this.prevSibling) {
-							this.prevSibling.nextSibling = ast.getFirstSibling();
-							ast.getFirstSibling().prevSibling = this.prevSibling; 
-						}
-						if( this.nextSibling && this.nextSibling!=ast) {
-							this.nextSibling.prevSibling = ast.getLastSibling();
-							ast.getLastSibling().nextSibling = this.nextSibling; 
-							this.nextSibling.purge( condition);
-						}
-						
-						return ast.getFirstSibling();
-					}
-												   
-					this.nextSibling && this.nextSibling.purge( condition);
-
-						// --
-
-					
-					return this;
+					//return AST_purge.call( this, condition);
+					return AST_purgeLast.call( this.getLastSibling(), condition);
 				},
-				text : function() {
-					var s = this.match.skipped + this.match.value;
+				text : function( /*undefined||true||false*/includeSkipped) {
+					var s = (includeSkipped ? this.match.skipped : '') + this.match.value;
 					
 					for( var i=0; i<this.children.length; i++) {
-						s = s.concat( this.children[i].text());
+						s = s.concat( this.children[i].text( includeSkipped));
 					}
 					
 					return this.nextSibling ? s + this.nextSibling.text() : s;
@@ -471,6 +435,81 @@
 			return this;
 		}
 		else return new $.orangevolt.parse.AST( rule, match, /**AST*/prevSibling, /**array<AST>*/children);
+	};
+	
+	function AST_purgeLast( /*function*/condition) {
+		var children = [];
+		for( var i=0; i<this.children.length; i++) {
+			var ast = arguments.callee.call( this.children[i].getLastSibling(), condition);
+			!ast || children.push( ast);
+		}
+		this.children = children;
+		
+		var ast = condition.call( this, this); 
+		if( ast===undefined) {				// remove ast			
+			if( this.nextSibling) {
+				this.nextSibling.prevSibling = this.prevSibling;				
+			}
+			if( this.prevSibling) {
+				this.prevSibling.nextSibling = this.nextSibling;
+				return arguments.callee.call( this.prevSibling, condition);
+			}
+			
+			return this.prevSibling ? this.prevSibling : this.nextSibling;
+		} else if( ast!==this) {			// replace ast by another ast 		
+			if( this.prevSibling) {
+				this.prevSibling.nextSibling = ast.getFirstSibling();
+				ast.getFirstSibling().prevSibling = this.prevSibling; 
+			}
+			if( this.nextSibling && this.nextSibling!=ast) {
+				this.nextSibling.prevSibling = ast.getLastSibling();
+				ast.getLastSibling().nextSibling = this.nextSibling; 
+				// arguments.callee.call( this.nextSibling, condition);
+			}
+			
+			return ast.getFirstSibling();
+		}
+									   
+		return this.prevSibling ? arguments.callee.call( this.prevSibling, condition) : this;
+	};
+	
+	function AST_purge( /*function*/condition) {
+		var children = [];
+		for( var i=0; i<this.children.length; i++) {
+			var ast = AST_purge.call( this.children[i], condition);
+			!ast || children.push( ast);
+		}
+		this.children = children;
+		
+		var ast = condition.call( this, this); 
+		if( ast===undefined) {				// remove ast
+			if( this.prevSibling) {
+				this.prevSibling.nextSibling = this.nextSibling;							
+			}
+			if( this.nextSibling) {
+				this.nextSibling.prevSibling = this.prevSibling;
+				return AST_purge.call( this.nextSibling, condition);
+			}
+			
+			return undefined;
+		} else if( ast!==this) {			// replace ast by another ast 		
+			if( this.prevSibling) {
+				this.prevSibling.nextSibling = ast.getFirstSibling();
+				ast.getFirstSibling().prevSibling = this.prevSibling; 
+			}
+			if( this.nextSibling && this.nextSibling!=ast) {
+				this.nextSibling.prevSibling = ast.getLastSibling();
+				ast.getLastSibling().nextSibling = this.nextSibling; 
+				AST_purge.call( this.nextSibling, condition);
+			}
+			
+			return ast.getFirstSibling();
+		}
+									   
+		this.nextSibling && AST_purge.call( this.nextSibling, condition);
+
+			// --
+		return this;
 	};
 	
 	$.orangevolt.parse.Rule = function( /**Rule*/prevSibling, /*Token*/token /**, children<Rule>*/) {

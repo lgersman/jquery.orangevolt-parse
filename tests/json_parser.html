@@ -233,7 +233,7 @@ with( jqUnit) {
 		test( 'complex', function() {
 			var output = $('<div>'); 
 
-			var source = "elf.trim()( 'huhu') + 5 * 3 > 0 ? true : isWatching ? 1 : -1";
+			var source = "(2)";//"elf.trim()( 'huhu') + 5 * 3 > 0 ? true : isWatching ? 1 : -1";
 			try {
 				var reader = $.orangevolt.parse.Reader( source);
 				var p = $.orangevolt.parse.Parser( { grammar : grammar, reader : reader});
@@ -256,7 +256,7 @@ with( jqUnit) {
 						return undefined;
 					}
 
-					if( ast.rule.type=='Once' && ast.prevSibling===undefined && ast.nextSibling===undefined) {
+					if( ast.rule.type=='Once' && ast.prevSibling===ast.nextSibling) {
 						return ast.children[0];
 					}
 				

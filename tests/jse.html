@@ -19,20 +19,19 @@
 				module( 'orangevolt.parse.jse');
 			
 				test( 'generic', function() {
-					var source = "((  2)) is heavy";
+					var source = "  ( (  2)) is heavy";
 					var reader = $.orangevolt.parse.Reader( source);
 					var p = $.orangevolt.parse.Parser( { grammar : $.orangevolt.parse.jse.grammar, reader : reader});
 					var ast = p.parse();
-					console.log( reader.charsLeft);
 					$('body').append( ast.html());
 			
 					equals( '((2))', ast.text());				
 					
 					ast = ast.purge( $.orangevolt.parse.jse.purge);				
 			
-					equals( '2', ast.match.value);
-					equals( '2', ast.text());
-					equals( '  2', ast.text( true));
+					equals( '2', ast.nextSibling.nextSibling.match.value);
+					equals( '((2))', ast.text());
+					equals( '  ( (  2))', ast.text( true));
 					equals( ' is heavy', reader.charsLeft);
 					
 					$('body').append( ast.html());
@@ -75,27 +74,38 @@
 					
 					$('body').append( ast.html());
 
-						// rewrite matched values (IDSELECTOR and following function)
+					ast = ast.purge( $.orangevolt.parse.jse.purge);
+					$('body').append( ast.html());			
+					
+						// rewrite matched values (IDSELECTOR.function and IDENTIFIER...())
 					var jse2js = function( ast) {
 						if( ast.rule.token=='IDSELECTOR') {
 							ast.match.value = 'jQuery( "' + ast.match.value + '")';
 
 							var functionAST = ast.nextSibling.nextSibling;
-							functionAST.match.value = 'orangevolt_mylib_myexpr_' + functionAST.match.value + '()';  
-						} else {
-							for( var i=0; i<ast.children.length; i++) {
-								arguments.callee( ast.children[i]);
+							functionAST.match.value = 'orangevolt_mylib_myexpr_' + functionAST.match.value + '()';
+
+						} else if( ast.rule.token=='IDENTIFIER') {
+							var next = ast.nextSibling;
+							if( next && next.rule.token=='prim-expr-right' && next.children[0].rule.token=='args') { 	 
+								ast.match.value = 'jQuery.orangevolt.mylib.myexpr.' + ast.match.value;
 							}
-							
-							ast.nextSibling && arguments.callee( ast.nextSibling);							
 						}
+
+						for( var i=0; i<ast.children.length; i++) {
+							arguments.callee( ast.children[i]);
+						}
+
+						ast.nextSibling && arguments.callee( ast.nextSibling);
 					};
 
-					jse2js( ast);
+					jse2js( ast);			
+
+					equals(
+						'{a:jQuery( "#inge-borg").orangevolt_mylib_myexpr_horchensemal()-b-jQuery.orangevolt.mylib.myexpr.max(200,jQuery( "#alpha").orangevolt_mylib_myexpr_left(),jQuery( "#beta").orangevolt_mylib_myexpr_width()),volvatron:[1,3,{},[]]}',
+						ast.text()
+					);
 					
-					$('body').append( ast.html());			
-			
-					ast = ast.purge( $.orangevolt.parse.jse.purge);
 					$('body').append( ast.html());
 				});
 			}

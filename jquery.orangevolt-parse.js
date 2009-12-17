@@ -433,7 +433,7 @@
 						s = s.concat( this.children[i].text( includeSkipped));
 					}
 					
-					return this.nextSibling ? s + this.nextSibling.text() : s;
+					return this.nextSibling ? s + this.nextSibling.text( includeSkipped) : s;
 				}
 			});
 			

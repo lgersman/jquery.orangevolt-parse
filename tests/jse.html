@@ -66,7 +66,7 @@
 						})
 					}); 
 			
-					var reader = $.orangevolt.parse.Reader( '{ a : #inge-borg.horchensemal - b - max( 200, #alpha.left, #beta.width), volvatron : [ 1, 3, {}, []] } her { } - ick versteh dat nich !');
+					var reader = $.orangevolt.parse.Reader( '{ width : fill, a : #inge-borg.horchensemal - b - max( 200, #alpha.left, #beta.width), volvatron : [ 1, 3, {}, []] } her { } - ick versteh dat nich !');
 					var p = $.orangevolt.parse.Parser( { grammar : grammar, reader : reader});
 					var ast = p.parse();
 			
@@ -80,7 +80,7 @@
 						// rewrite matched values (IDSELECTOR.function and IDENTIFIER...())
 					var jse2js = function( ast) {
 						if( ast.rule.token=='IDSELECTOR') {
-							ast.match.value = 'jQuery( "' + ast.match.value + '")';
+							ast.match.value = 'jQuery("' + ast.match.value + '")';
 
 							var functionAST = ast.nextSibling.nextSibling;
 							functionAST.match.value = 'orangevolt_mylib_myexpr_' + functionAST.match.value + '()';
@@ -90,6 +90,8 @@
 							if( next && next.rule.token=='prim-expr-right' && next.children[0].rule.token=='args') { 	 
 								ast.match.value = 'jQuery.orangevolt.mylib.myexpr.' + ast.match.value;
 							}
+						} else if( ast.rule.token==':' && ast.prevSibling.rule.token=='IDENTIFIER' && ast.nextSibling.rule.token=='IDENTIFIER' && !ast.nextSibling.nextSibling) {
+							ast.nextSibling.match.value = 'jQuery.orangevolt.mylib.myexpr.' + ast.nextSibling.match.value + '()'; 
 						}
 
 						for( var i=0; i<ast.children.length; i++) {
@@ -102,11 +104,21 @@
 					jse2js( ast);			
 
 					equals(
-						'{a:jQuery( "#inge-borg").orangevolt_mylib_myexpr_horchensemal()-b-jQuery.orangevolt.mylib.myexpr.max(200,jQuery( "#alpha").orangevolt_mylib_myexpr_left(),jQuery( "#beta").orangevolt_mylib_myexpr_width()),volvatron:[1,3,{},[]]}',
+						'{width:fill,a:jQuery("#inge-borg").orangevolt_mylib_myexpr_horchensemal()-b-jQuery.orangevolt.mylib.myexpr.max(200,jQuery("#alpha").orangevolt_mylib_myexpr_left(),jQuery("#beta").orangevolt_mylib_myexpr_width()),volvatron:[1,3,{},[]]}',
 						ast.text()
 					);
+					console.log(ast.text());
+					$( 'body').append( ast.html());
+
+					ast = grammar
+					.parse( '{ left: max(#internLink.left, #externLink.left ), width: max(#internLink.width, #externLink.width) }')
+					.purge( $.orangevolt.parse.jse.purge);
 					
-					$('body').append( ast.html());
+					$( 'body').append( ast.html());
+
+					jse2js( ast);
+
+					$( 'body').append( ast.html());
 				});
 			}
 			</script>

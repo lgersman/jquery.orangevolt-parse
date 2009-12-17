@@ -1,0 +1,13 @@
+* add kind of CSS3 selector support to ast find asts containing special children and so on
+
+	supported selectors : 
+	- CLASS selector ('.mytoken' will find all asts with rule.token=='mytoken'
+	- TAG selector ('Oneof') will find all asts with rule.type=='OneOf'
+	- support for CSS >child (direct children), closest (like in jquery) and so on   
+	
+	example : 
+		...
+		ast.find( '.mytoken, ZeroOrMore).each( function() {
+			...
+		}); 
+		...

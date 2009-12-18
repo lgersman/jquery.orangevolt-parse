@@ -16,6 +16,63 @@
 		<script language="javascript" src="../jquery.orangevolt-parse-jse.js"></script>
 		
 		<script type="text/javascript">
+			/**
+			* called in context (this) if the node	
+			*/
+			function collect( /*boolean function( node)*/condition) {
+				var matches = [];
+				
+				!condition.call( this) || matches.push( this);	
+				
+				for( var i=0; i<this.children.length; i++) {
+					matches = matches.concat( arguments.callee.call( this.children[i], condition));
+				}
+
+				this.nextSibling && (matches = matches.concat( arguments.callee.call( this.nextSibling, condition)));
+
+				return matches;
+			} 
+		
+			Sizzle.selectors.find = {
+				ID: function(match, context/*, isXML*/){
+					throw Error( 'ID selector is not suported yet'); 
+					/*
+					if( typeof context.getElementById !== "undefined" && !isXML ) {
+						var m = context.getElementById(match[1]);
+						return m ? [m] : [];
+					}
+					*/
+				},
+				NAME: function(match, context){
+					var matches = collect.call( context, function() {
+						var b = this.rule.token == match[1];
+						return b;
+					});
+					return matches.length ? null : matches;
+					/*
+					if ( typeof context.getElementsByName !== "undefined" ) {
+						var ret = [], results = context.getElementsByName(match[1]);
+	
+						for ( var i = 0, l = results.length; i < l; i++ ) {
+							if ( results[i].getAttribute("name") === match[1] ) {
+								ret.push( results[i] );
+							}
+						}
+	
+						return ret.length === 0 ? null : ret;
+					}
+					*/
+				},
+				TAG: function(match, context){
+					var matches = collect.call( context, function() {
+						var b = this.rule.type == match[1];
+						return b;
+					});
+					return matches.length ? null : matches;
+					//return context.getElementsByTagName(match[1]);
+				}
+			};
+		
 			with( jqUnit) {
 				module( 'orangevolt.parse - sizzle integration');
 			
@@ -48,6 +105,11 @@
 					.purge( $.orangevolt.parse.jse.purge);
 					
 					$( 'body').append( ast.html());
+
+					
+					
+//					var matches = Sizzle( '[NAME=prim-expr-right]', ast);
+//					console.log( matches.length);
 				});
 			}
 			</script>

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=7" />	
+		<title>query.orangevolt.parse.jse - testcase</title>
+		
+		<link type="text/css" rel="stylesheet" media="screen" href="testsuite.css"/>
+		<link type="text/css" rel="stylesheet" media="screen" href="jquery.orangevolt-parse.css"/>
+		
+		<script language="javascript" src="../lib/jquery-1.3.2.js"></script>
+		<script language="javascript" src="lib/jqUnit.js"></script>
+		<script language="javascript" src="../jquery.orangevolt-parse.js"></script>
+		<script language="javascript" src="../jquery.orangevolt-parse-jse.js"></script>
+		
+		<script type="text/javascript">	
+		 	var Node = {
+			 	nextSibling  : function() {
+				},
+				prevSibling  : function() {
+				},
+				lastSibling  : function() {
+				},
+				firstSibling : function() {
+				},
+				children 	 : function() {
+				},
+				siblingCount : function() {
+				},				
+				/**
+				* getter for the node name (token name)   
+				*/				
+				name		 : function() {
+				},				
+				/**
+				* getter for the node type (OneOf, ZeroOrMore ...)   
+				*/				
+				type		 : function() {
+				}
+			}
+
+			var AST = $.extend( {}, Node, {
+				/**
+				* getter/setter(if argument given) for the AST value 
+				*/
+				value		 : function( /*optional<string>*/s) {
+				},
+				/**
+				* getter/setter(if argument given) for the AST skipped value 
+				*/
+				skipped		 : function( /*optional<string>*/s) {
+				},
+				/**
+				* getter for the AST rule  
+				*/				
+				rule		 : function() {
+				},
+			});
+
+			with( jqUnit) {
+				module( 'orangevolt.parse - dom ast implementation');
+			
+				test( 'test grammar', function() {
+					var grammar = $('<?xml version="1.0"?><grammar/>');
+
+					grammar.append( "<token token=''/>");
+					grammar.append( "<rule  token=''/>");
+				});
+			}
+			</script>
+	</head>
+<body>
+	<pre>
+/* 
+ * Copyright (c) 2009 Lars Gersmann (lars.gersmann@gmail.com, http://orangevolt.blogspot.com)
+ * Dual licensed under the MIT (http://www.opensource.org/licenses/mit-license.php)
+ * and GPL (http://www.opensource.org/licenses/gpl-license.php) licenses.
+ */	
+	</pre>
+
+	<h3>test results</h3>
+
+	 <!-- Test HTML -->
+    <div id="main" style="display: none;">
+      <form id="test-form">
+        <input/>
+      </form>
+    </div>
+    <ol id="tests"></ol>
+</body>
+</html>

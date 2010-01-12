@@ -28,7 +28,7 @@
 	with( $.orangevolt.parse) {
 		$.orangevolt.parse.jse.grammar = Grammar({
 			lexer : {
-				skip   : /((\s*)|(\/{2}.*$)|(\/\*((\*[^\/])|.)*\*\/))*/, 
+				skip   : /((\s*)|(\/{2}.*(\r\n|\r|\n))|(\/\*((\*[^\/])|.)*\*\/))*/, 
 				tokens : {
 					IDENTIFIER  : /[a-zA-Z_]\w*/,	
 					NUMBER      : /\d+(\.\d+)?/,	

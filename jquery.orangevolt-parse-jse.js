@@ -211,10 +211,13 @@
 					)
 				),
 				Once( 'object-property',
+					/*	
 					OneOf( 'property',
 						Token( 'IDENTIFIER'),
 						Token( 'STRING')
 					)
+					*/
+					Term( 'literal')	
 					.Token( ':')
 					.Term( 'expr')
 				),

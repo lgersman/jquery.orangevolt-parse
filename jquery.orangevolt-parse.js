@@ -125,6 +125,7 @@
 				
 					var skipped = (reader.next( this.skip) || [''])[0];
 					var position = { line : reader.line, column : reader.column};
+					var tokenName;
 					
 					var match = reader.next( token || tokenRegexp);					
 					if( match!==undefined) {
@@ -133,7 +134,8 @@
 							if( match[0].length>0) { 
 								for( var i=1; i<match.length; i++) {
 									if( match[i]) {
-										token = this.tokens[ tokenNames[i-1]];
+										tokenName = tokenNames[i-1];
+										token = this.tokens[ tokenName];
 										break;
 									}
 								}
@@ -150,7 +152,7 @@
 							}
 						}
 						
-						return $.orangevolt.parse.Match( skipped, match[0], token, this.getTokenName( token), position);
+						return $.orangevolt.parse.Match( skipped, match[0], token, tokenName, position);
 					} else {
 						if( reader.charsLeft.length) {
 							reader.unread( skipped);
@@ -385,62 +387,62 @@
 				return this.rule.type + ' ' + this.rule.token + '(' + this.match.value + ')';
 			};
 			
-			$.extend( this, $.orangevolt.parse.Node, {
-				rule 		: rule,
-				match 		: match,
-				prevSibling : prevSibling,
-				children 	: children,
-				html		: function() {
-					var ast = this;
-					
-					var html = $('<div class="ast"/>')
-					.addClass( 'ast-rule-type-' + ast.rule.type.toLowerCase());					
-					while( ast) {
-						var label = $( '<div class="ast-label"/>')
-						.append( 
-							$( '<div class="ast-label-type"/>').text( ast.rule.type),
-							$( '<div class="ast-label-token"/>').text( ast.rule.token),
-							$( '<div class="ast-label-value"/>').text( ast.match.value)
-						).appendTo( html);
-						if( ast.children.length) {
-							var children = $('<div class="ast-children"/>').appendTo( label);
-							for( var i=0; i<ast.children.length; i++) {
-								children.append( ast.children[i].html());
-							}
+			this.rule 		= rule,
+			this.match 		= match,
+			this.prevSibling = prevSibling,
+			this.children 	= children,
+			this.html		= function() {
+				var ast = this;
+				
+				var html = $('<div class="ast"/>')
+				.addClass( 'ast-rule-type-' + ast.rule.type.toLowerCase());					
+				while( ast) {
+					var label = $( '<div class="ast-label"/>')
+					.append( 
+						$( '<div class="ast-label-type"/>').text( ast.rule.type),
+						$( '<div class="ast-label-token"/>').text( ast.rule.token),
+						$( '<div class="ast-label-value"/>').text( ast.match.value)
+					).appendTo( html);
+					if( ast.children.length) {
+						var children = $('<div class="ast-children"/>').appendTo( label);
+						for( var i=0; i<ast.children.length; i++) {
+							children.append( ast.children[i].html());
 						}
-						ast = ast.nextSibling;
 					}
-					
-					return html;
-				},
-				/**
-				 * useful to rebuild the whole AST
-				 *
-				 * condition is expected to return :  
-				 * * undefined 		 					-> ast should be completely removed
-				 * * ast replacement 					-> another ast node replacing the inspected one
-				 * * ast given as argument to condition -> no change
-				 *
-				 */
-				purge : function( /*function*/condition) {
-					//return AST_purge.call( this, condition);
-					return AST_purgeLast.call( this.getLastSibling(), condition);
-				},
-				text : function( /*undefined||true||false*/includeSkipped) {
-					var s = (includeSkipped ? this.match.skipped : '') + this.match.value;
-					
-					for( var i=0; i<this.children.length; i++) {
-						s = s.concat( this.children[i].text( includeSkipped));
-					}
-					
-					return this.nextSibling ? s + this.nextSibling.text( includeSkipped) : s;
+					ast = ast.nextSibling;
 				}
-			});
+				
+				return html;
+			};
+			
+			/**
+			 * useful to rebuild the whole AST
+			 *
+			 * condition is expected to return :  
+			 * * undefined 		 					-> ast should be completely removed
+			 * * ast replacement 					-> another ast node replacing the inspected one
+			 * * ast given as argument to condition -> no change
+			 *
+			 */
+			this.purge = function( /*function*/condition) {
+				//return AST_purge.call( this, condition);
+				return AST_purgeLast.call( this.getLastSibling(), condition);
+			};
+			this.text = function( /*undefined||true||false*/includeSkipped) {
+				var s = (includeSkipped ? this.match.skipped : '') + this.match.value;
+				
+				for( var i=0; i<this.children.length; i++) {
+					s = s.concat( this.children[i].text( includeSkipped));
+				}
+				
+				return this.nextSibling ? s + this.nextSibling.text( includeSkipped) : s;
+			};
 			
 			return this;
 		}
 		else return new $.orangevolt.parse.AST( rule, match, /**AST*/prevSibling, /**array<AST>*/children);
 	};
+	$.orangevolt.parse.AST.prototype = $.orangevolt.parse.Node;
 	
 	function AST_purgeLast( /*function*/condition) {
 		var children = [];

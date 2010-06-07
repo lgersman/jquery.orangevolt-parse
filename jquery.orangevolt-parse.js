@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2009 Lars Gersmann (lars.gersmann@gmail.com, http://orangevolt.blogspot.com)
+ * Copyright (c) 2010 Lars Gersmann (lars.gersmann@gmail.com, http://orangevolt.blogspot.com)
  * Dual licensed under the MIT (http://www.opensource.org/licenses/mit-license.php)
  * and GPL (http://www.opensource.org/licenses/gpl-license.php) licenses.
  */
@@ -585,19 +585,7 @@
 		}
 		else return new $.orangevolt.parse.Rule( /**Rule*/prevSibling, /*Token*/token, /**, children<Rule>*/children);
 	};
-	
-		// adapt factory methods to $.orangevolt.parse.Rule 
-	$( ['Token', 'OneOf', 'OneOrMore', 'ZeroOrMore', 'Once', 'Optional', 'Loop', 'Repeat', 'Term']).each( function() {
-		var type = this;
-		$.orangevolt.parse[ type] = $.orangevolt.parse.Rule[ type] = function() {
-			var args = $.makeArray( arguments);
-			
-			args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
-			return eval( 'create' + type).apply( this, args);
-		};
-	});
-		// --
-	
+
 	/**
 	 * static && instance method : creates a Token rule 
 	 */
@@ -631,6 +619,12 @@
 		
 		return self;
 	}
+	$.orangevolt.parse.Token = $.orangevolt.parse.Rule.Token = function() {
+		var args = $.makeArray( arguments);
+		
+		args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
+		return createToken.apply( this, args);
+	};
 
 	/**
 	 * 
@@ -688,6 +682,12 @@
 		});
 		return self;
 	}
+	$.orangevolt.parse.OneOf = $.orangevolt.parse.Rule.OneOf = function() {
+		var args = $.makeArray( arguments);
+		
+		args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
+		return createOneOf.apply( this, args);
+	};
 	 
 	/**
 	 * creates a OneOrMore rule
@@ -744,6 +744,12 @@
 		
 		return self;
 	}
+	$.orangevolt.parse.OneOrMore = $.orangevolt.parse.Rule.OneOrMore = function() {
+		var args = $.makeArray( arguments);
+		
+		args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
+		return createOneOrMore.apply( this, args);
+	};
 	 
 	 /**
 	 * static && instance method : creates a ZeroOrMore rule by createing a OneOrMore rule and overrriding 
@@ -767,6 +773,12 @@
 		 
 		 return rule;
 	} 
+	$.orangevolt.parse.ZeroOrMore = $.orangevolt.parse.Rule.ZeroOrMore = function() {
+		var args = $.makeArray( arguments);
+		
+		args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
+		return createZeroOrMore.apply( this, args);
+	};
 	 
 	 /**
 	 * instance && static method : is used for building the concrete rules 
@@ -826,6 +838,12 @@
 		
 		return self;
 	} 
+	$.orangevolt.parse.Repeat = $.orangevolt.parse.Rule.Repeat = function() {
+		var args = $.makeArray( arguments);
+		
+		args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
+		return createRepeat.apply( this, args);
+	};
 
 	 /**
 	 * creates a Once rule 
@@ -848,6 +866,12 @@
 		
 		return rule;
 	}
+	$.orangevolt.parse.Once = $.orangevolt.parse.Rule.Once = function() {
+		var args = $.makeArray( arguments);
+		
+		args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
+		return createOnce.apply( this, args);
+	};
 	
 	 /**
 	 * creates a Optional rule 
@@ -870,6 +894,12 @@
 
 		return rule;
 	}
+	$.orangevolt.parse.Optional = $.orangevolt.parse.Rule.Optional = function() {
+		var args = $.makeArray( arguments);
+		
+		args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
+		return createOptional.apply( this, args);
+	};
 	
 	 /**
 	 * creates a Loop rule 
@@ -892,6 +922,12 @@
 		
 		return rule;
 	}
+	$.orangevolt.parse.Loop = $.orangevolt.parse.Rule.Loop = function() {
+		var args = $.makeArray( arguments);
+		
+		args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
+		return createLoop.apply( this, args);
+	};
 	
 	/**
 	 * creates a term rule. a term is a delegate to a root rule.
@@ -936,4 +972,12 @@
 		
 		return self;
 	}
+	$.orangevolt.parse.Term = $.orangevolt.parse.Rule.Term = function() {
+		var args = $.makeArray( arguments);
+		
+		args.unshift( this instanceof $.orangevolt.parse.Rule ? this : undefined);
+		return createTerm.apply( this, args);
+	};
+		// --
+
 })(jQuery);
